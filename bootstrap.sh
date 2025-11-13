@@ -14,11 +14,10 @@ echo "[helionet] bootstrap starting"
 ########################################
 if ! command -v docker >/dev/null 2>&1; then
   echo "[helionet] ERROR: docker is not installed or not in PATH."
-  echo "[helionet]        Please install Docker and try again."
   exit 1
 fi
 
-# Prefer 'docker compose' but fall back to 'docker-compose' if needed
+# Prefer 'docker compose' but fall back to 'docker-compose'
 if docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
@@ -34,7 +33,6 @@ fi
 
 IN_REPO=0
 
-# Heuristics: .git or docker-compose.* or README.md with 'docker-helionet'
 if [[ -d .git ]] || [[ -f docker-compose.yml ]] || [[ -f docker-compose.yaml ]]; then
   IN_REPO=1
 fi
@@ -66,7 +64,6 @@ fi
 
 if [[ ! -f .env ]]; then
   echo "[helionet] ERROR: .env not found and .env.example missing in docker-helionet."
-  echo "[helionet]        Make sure .env.example is committed to the repo."
   exit 1
 fi
 
@@ -76,13 +73,8 @@ fi
 
 if grep -q "CHANGEME_DB_PASSWORD" .env; then
   echo "[helionet] generating random DB password"
-
-  # 18 bytes base64, strip = + /
   DB_PASS="$(openssl rand -base64 18 | tr -d '=+/')"
-
-  # Linux / GNU sed version (WSL, Ubuntu, etc.)
   sed -i "s/CHANGEME_DB_PASSWORD/${DB_PASS}/" .env
-
   echo "[helionet] DB password updated in .env"
 else
   echo "[helionet] DB password already set, leaving docker-helionet .env as-is"
@@ -96,8 +88,7 @@ if [[ -d "$APP_DIR/.git" ]]; then
   echo "[helionet] application repo already present at '$APP_DIR'"
 else
   if [[ -d "$APP_DIR" ]]; then
-    echo "[helionet] WARNING: '$APP_DIR' exists but is not a git repo."
-    echo "[helionet]          Skipping automatic clone to avoid overwriting."
+    echo "[helionet] WARNING: '$APP_DIR' exists but is not a git repo. Skipping clone."
   else
     echo "[helionet] cloning helionet application into '$APP_DIR'..."
     git clone "$APP_REPO_URL" "$APP_DIR"
@@ -118,12 +109,14 @@ fi
 
 if [[ ! -f "$APP_ENV_FILE" ]]; then
   echo "[helionet] WARNING: app .env not found at '$APP_ENV_FILE'."
-  echo "[helionet]          You may need to create it manually."
 fi
 
 ########################################
-# 6. Bring up the stack
+# 6. Bring up the stack cleanly
 ########################################
+
+echo "[helionet] stopping any existing stack (if present)..."
+$COMPOSE_CMD down --remove-orphans || true
 
 echo "[helionet] pulling images..."
 $COMPOSE_CMD pull
@@ -137,7 +130,7 @@ $COMPOSE_CMD up -d
 
 echo "[helionet] checking for vendor/autoload.php..."
 if [[ ! -f "$APP_DIR/vendor/autoload.php" ]]; then
-  echo "[helionet] vendor not found, running composer install in web container..."
+  echo "[helionet] vendor not found, attempting composer install in web container..."
   if $COMPOSE_CMD exec -T web sh -lc 'command -v composer >/dev/null 2>&1'; then
     $COMPOSE_CMD exec -T web composer install --no-interaction --prefer-dist --optimize-autoloader
     echo "[helionet] composer install complete"
@@ -150,14 +143,15 @@ else
 fi
 
 echo "[helionet] ensuring APP_KEY is set..."
-# If APP_KEY is empty or missing in the app .env, generate it
-if grep -q '^APP_KEY=$' "$APP_ENV_FILE" 2>/dev/null || ! grep -q '^APP_KEY=' "$APP_ENV_FILE" 2>/dev/null; then
-  echo "[helionet] running php artisan key:generate in web container..."
-  $COMPOSE_CMD exec -T web php artisan key:generate --force || {
-    echo "[helionet] WARNING: failed to run key:generate. Check container logs."
-  }
-else
-  echo "[helionet] APP_KEY already set in app .env"
+if [[ -f "$APP_ENV_FILE" ]]; then
+  if grep -q '^APP_KEY=$' "$APP_ENV_FILE" 2>/dev/null || ! grep -q '^APP_KEY=' "$APP_ENV_FILE" 2>/dev/null; then
+    echo "[helionet] running php artisan key:generate in web container..."
+    $COMPOSE_CMD exec -T web php artisan key:generate --force || {
+      echo "[helionet] WARNING: failed to run key:generate. Check container logs."
+    }
+  else
+    echo "[helionet] APP_KEY already set in app .env"
+  fi
 fi
 
 echo "[helionet] bootstrap complete"

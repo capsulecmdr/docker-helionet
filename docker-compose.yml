@@ -1,0 +1,73 @@
+services:
+  web:
+    image: ghcr.io/capsulecmdr/helionet:latest
+    container_name: web
+    command: ["web"]
+    env_file: [.env]
+    # Standalone mode: expose a port on the host
+    ports:
+      - "8080:80"        # comment out if using an external reverse proxy
+    depends_on:
+      - db
+      - redis
+    networks:
+      - helionet_public
+      - helionet_internal
+
+  worker:
+    image: ghcr.io/capsulecmdr/helionet:latest
+    container_name: worker
+    command: ["worker"]
+    env_file: [.env]
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    networks:
+      - helionet_internal
+
+  scheduler:
+    image: ghcr.io/capsulecmdr/helionet:latest
+    container_name: scheduler
+    command: ["scheduler"]
+    env_file: [.env]
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    networks:
+      - helionet_internal
+
+  db:
+    image: mariadb:11
+    container_name: db
+    environment:
+      MARIADB_DATABASE: helionet
+      MARIADB_USER: helionet
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - helionet-dbdata:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - helionet_internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - helionet-redisdata:/data
+    restart: unless-stopped
+    networks:
+      - helionet_internal
+
+volumes:
+  helionet-dbdata:
+  helionet-redisdata:
+
+networks:
+  helionet_internal:
+    driver: bridge
+  helionet_public:
+    driver: bridge

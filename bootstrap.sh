@@ -160,7 +160,8 @@ $COMPOSE_CMD exec -T web php artisan queue:failed-table
 $COMPOSE_CMD exec -T web php artisan migrate
 
 echo "[helionet] starting worker and scheduler containers..."
-$COMPOSE_CMD up -d worker scheduler
+$COMPOSE_CMD up -d worker
+$COMPOSE_CMD up -d scheduler
 
 echo "[helionet] bootstrap complete"
 echo "[helionet] Stack is up. Try opening: http://localhost:8080"

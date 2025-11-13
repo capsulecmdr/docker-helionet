@@ -1,9 +1,6 @@
 services:
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: helionet:dev
+    image: ghcr.io/capsulecmdr/helionet:latest
     container_name: helionet-web
     depends_on:
       - db
@@ -28,10 +25,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-secret}
 
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: helionet:dev
+    image: ghcr.io/capsulecmdr/helionet:latest
     container_name: helionet-worker
     depends_on:
       - db
@@ -44,10 +38,7 @@ services:
     command: php artisan queue:work --sleep=3 --tries=3
 
   scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: helionet:dev
+    image: ghcr.io/capsulecmdr/helionet:latest
     container_name: helionet-scheduler
     depends_on:
       - db

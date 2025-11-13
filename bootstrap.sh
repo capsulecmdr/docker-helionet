@@ -154,5 +154,10 @@ if [[ -f "$APP_ENV_FILE" ]]; then
   fi
 fi
 
+echo "[helionet] completing initial migrations..."
+$COMPOSE_CMD exec -T web php artisan config:clear
+$COMPOSE_CMD exec -T web php artisan queue:failed-table
+$COMPOSE_CMD exec -T web php artisan migrate
+
 echo "[helionet] bootstrap complete"
 echo "[helionet] Stack is up. Try opening: http://localhost:8080"

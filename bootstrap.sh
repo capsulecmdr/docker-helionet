@@ -112,7 +112,48 @@ if [[ ! -f "$APP_ENV_FILE" ]]; then
 fi
 
 ########################################
-# 6. Bring up the stack cleanly
+# 6. Sync DB_* values from docker .env into app .env
+########################################
+
+if [[ -f "$APP_ENV_FILE" ]]; then
+  echo "[helionet] syncing DB settings into app .env"
+
+  # Helper: set or append a key=value in a .env file
+  sync_env_key() {
+    local key="$1"
+    local value="$2"
+    local file="$3"
+
+    # Escape forward slashes in value for sed
+    local esc_value
+    esc_value=$(printf '%s\n' "$value" | sed 's/[\/&]/\\&/g')
+
+    if grep -q "^${key}=" "$file"; then
+      sed -i "s/^${key}=.*/${key}=${esc_value}/" "$file"
+    else
+      echo "${key}=${value}" >> "$file"
+    fi
+  }
+
+  # Pull DB_* from docker-helionet/.env
+  DOCKER_DB_HOST="$(grep '^DB_HOST=' .env | cut -d '=' -f2- || true)"
+  DOCKER_DB_DATABASE="$(grep '^DB_DATABASE=' .env | cut -d '=' -f2- || true)"
+  DOCKER_DB_USERNAME="$(grep '^DB_USERNAME=' .env | cut -d '=' -f2- || true)"
+  DOCKER_DB_PASSWORD="$(grep '^DB_PASSWORD=' .env | cut -d '=' -f2- || true)"
+
+  # Apply to app .env if values are present
+  [[ -n "$DOCKER_DB_HOST" ]] && sync_env_key "DB_HOST" "$DOCKER_DB_HOST" "$APP_ENV_FILE"
+  [[ -n "$DOCKER_DB_DATABASE" ]] && sync_env_key "DB_DATABASE" "$DOCKER_DB_DATABASE" "$APP_ENV_FILE"
+  [[ -n "$DOCKER_DB_USERNAME" ]] && sync_env_key "DB_USERNAME" "$DOCKER_DB_USERNAME" "$APP_ENV_FILE"
+  [[ -n "$DOCKER_DB_PASSWORD" ]] && sync_env_key "DB_PASSWORD" "$DOCKER_DB_PASSWORD" "$APP_ENV_FILE"
+
+  echo "[helionet] DB_* values synced from docker-helionet/.env to app .env"
+else
+  echo "[helionet] WARNING: cannot sync DB settings; app .env not found."
+fi
+
+########################################
+# 7. Bring up the stack cleanly
 ########################################
 
 echo "[helionet] stopping any existing stack (if present)..."
@@ -125,7 +166,7 @@ echo "[helionet] starting containers..."
 $COMPOSE_CMD up -d
 
 ########################################
-# 7. App post-setup inside container
+# 8. App post-setup inside container
 ########################################
 
 echo "[helionet] checking for vendor/autoload.php..."
@@ -156,7 +197,7 @@ fi
 
 echo "[helionet] completing initial migrations..."
 $COMPOSE_CMD exec -T web php artisan config:clear
-$COMPOSE_CMD exec -T web php artisan queue:failed-table
+$COMPOSE_CMD exec -T web php artisan queue:failed-table || true
 $COMPOSE_CMD exec -T web php artisan migrate
 
 echo "[helionet] starting worker and scheduler containers..."

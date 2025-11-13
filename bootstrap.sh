@@ -56,16 +56,16 @@ else
 fi
 
 ########################################
-# 2. Ensure .env exists
+# 2. Ensure docker-helionet .env exists
 ########################################
 
 if [[ ! -f .env && -f .env.example ]]; then
   cp .env.example .env
-  echo "[helionet] copied .env.example to .env"
+  echo "[helionet] copied .env.example to .env (docker stack env)"
 fi
 
 if [[ ! -f .env ]]; then
-  echo "[helionet] ERROR: .env not found and .env.example missing."
+  echo "[helionet] ERROR: .env not found and .env.example missing in docker-helionet."
   echo "[helionet]        Make sure .env.example is committed to the repo."
   exit 1
 fi
@@ -85,7 +85,7 @@ if grep -q "CHANGEME_DB_PASSWORD" .env; then
 
   echo "[helionet] DB password updated in .env"
 else
-  echo "[helionet] DB password already set, leaving .env as-is"
+  echo "[helionet] DB password already set, leaving docker-helionet .env as-is"
 fi
 
 ########################################
@@ -105,7 +105,24 @@ else
 fi
 
 ########################################
-# 5. Bring up the stack
+# 5. Ensure application .env exists
+########################################
+
+APP_ENV_FILE="$APP_DIR/.env"
+APP_ENV_EXAMPLE="$APP_DIR/.env.example"
+
+if [[ ! -f "$APP_ENV_FILE" && -f "$APP_ENV_EXAMPLE" ]]; then
+  cp "$APP_ENV_EXAMPLE" "$APP_ENV_FILE"
+  echo "[helionet] copied app .env.example to .env"
+fi
+
+if [[ ! -f "$APP_ENV_FILE" ]]; then
+  echo "[helionet] WARNING: app .env not found at '$APP_ENV_FILE'."
+  echo "[helionet]          You may need to create it manually."
+fi
+
+########################################
+# 6. Bring up the stack
 ########################################
 
 echo "[helionet] pulling images..."
@@ -113,6 +130,35 @@ $COMPOSE_CMD pull
 
 echo "[helionet] starting containers..."
 $COMPOSE_CMD up -d
+
+########################################
+# 7. App post-setup inside container
+########################################
+
+echo "[helionet] checking for vendor/autoload.php..."
+if [[ ! -f "$APP_DIR/vendor/autoload.php" ]]; then
+  echo "[helionet] vendor not found, running composer install in web container..."
+  if $COMPOSE_CMD exec -T web sh -lc 'command -v composer >/dev/null 2>&1'; then
+    $COMPOSE_CMD exec -T web composer install --no-interaction --prefer-dist --optimize-autoloader
+    echo "[helionet] composer install complete"
+  else
+    echo "[helionet] WARNING: composer not found in web container."
+    echo "[helionet]          Please run 'composer install' manually in ../helionet."
+  fi
+else
+  echo "[helionet] vendor/autoload.php present, skipping composer install"
+fi
+
+echo "[helionet] ensuring APP_KEY is set..."
+# If APP_KEY is empty or missing in the app .env, generate it
+if grep -q '^APP_KEY=$' "$APP_ENV_FILE" 2>/dev/null || ! grep -q '^APP_KEY=' "$APP_ENV_FILE" 2>/dev/null; then
+  echo "[helionet] running php artisan key:generate in web container..."
+  $COMPOSE_CMD exec -T web php artisan key:generate --force || {
+    echo "[helionet] WARNING: failed to run key:generate. Check container logs."
+  }
+else
+  echo "[helionet] APP_KEY already set in app .env"
+fi
 
 echo "[helionet] bootstrap complete"
 echo "[helionet] Stack is up. Try opening: http://localhost:8080"

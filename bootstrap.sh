@@ -4,7 +4,29 @@ set -euo pipefail
 REPO_URL="https://github.com/capsulecmdr/docker-helionet.git"
 REPO_DIR="docker-helionet"
 
+APP_REPO_URL="https://github.com/capsulecmdr/helionet.git"
+APP_DIR="../helionet"
+
 echo "[helionet] bootstrap starting"
+
+########################################
+# 0. Ensure docker is available
+########################################
+if ! command -v docker >/dev/null 2>&1; then
+  echo "[helionet] ERROR: docker is not installed or not in PATH."
+  echo "[helionet]        Please install Docker and try again."
+  exit 1
+fi
+
+# Prefer 'docker compose' but fall back to 'docker-compose' if needed
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD="docker-compose"
+else
+  echo "[helionet] ERROR: neither 'docker compose' nor 'docker-compose' is available."
+  exit 1
+fi
 
 ########################################
 # 1. Are we already inside the repo?
@@ -67,10 +89,30 @@ else
 fi
 
 ########################################
-# 4. (Optional) sanity messages / next steps
+# 4. Ensure application repo exists at ../helionet
 ########################################
 
+if [[ -d "$APP_DIR/.git" ]]; then
+  echo "[helionet] application repo already present at '$APP_DIR'"
+else
+  if [[ -d "$APP_DIR" ]]; then
+    echo "[helionet] WARNING: '$APP_DIR' exists but is not a git repo."
+    echo "[helionet]          Skipping automatic clone to avoid overwriting."
+  else
+    echo "[helionet] cloning helionet application into '$APP_DIR'..."
+    git clone "$APP_REPO_URL" "$APP_DIR"
+  fi
+fi
+
+########################################
+# 5. Bring up the stack
+########################################
+
+echo "[helionet] pulling images..."
+$COMPOSE_CMD pull
+
+echo "[helionet] starting containers..."
+$COMPOSE_CMD up -d
+
 echo "[helionet] bootstrap complete"
-echo "[helionet] Next steps (typical):"
-echo "  - docker compose pull"
-echo "  - docker compose up -d"
+echo "[helionet] Stack is up. Try opening: http://localhost:8080"

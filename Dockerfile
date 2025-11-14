@@ -89,8 +89,8 @@ USER ${APP_USER}
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress || true
 
-RUN php artisan config:cache || true \
- && php artisan route:cache || true \
+# Only cache routes/views at build time; config should be cached at runtime
+RUN php artisan route:cache || true \
  && php artisan view:cache || true
 
 # -----------------------------

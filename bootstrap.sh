@@ -172,11 +172,6 @@ $COMPOSE_CMD pull
 echo "[helionet] starting containers..."
 $COMPOSE_CMD up -d
 
-echo "[helionet] waiting for db container to be ready..."
-until docker compose exec db mysqladmin ping -h"db" --silent; do
-  sleep 1
-done
-
 ########################################
 # 8. App post-setup inside container
 ########################################

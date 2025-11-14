@@ -7,8 +7,8 @@ services:
       - redis
     ports:
       - "8080:80"          # http://localhost:8080 → app
-    volumes:
-      - ../helionet:/var/www/html
+    #volumes:
+    #  - ../helionet:/var/www/html #comment this out for production use.
     networks:
       - internal
       - public
@@ -30,8 +30,8 @@ services:
     depends_on:
       - db
       - redis
-    volumes:
-      - ../helionet:/var/www/html
+    #volumes:
+    #  - ../helionet:/var/www/html
     networks:
       - internal
     # Override CMD from Dockerfile: run the queue worker instead of supervisord
@@ -43,8 +43,8 @@ services:
     depends_on:
       - db
       - redis
-    volumes:
-      - ../helionet:/var/www/html
+    #volumes:
+    #  - ../helionet:/var/www/html
     networks:
       - internal
     # Continuous scheduler loop

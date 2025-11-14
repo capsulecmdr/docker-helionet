@@ -1,6 +1,9 @@
 # HelioNET app image builder (Dockerfile lives OUTSIDE app repo)
 FROM php:8.3-fpm
 
+# -----------------------------
+# System packages & PHP extensions
+# -----------------------------
 RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
@@ -26,12 +29,32 @@ RUN apt-get update && apt-get install -y \
 RUN pecl install redis \
     && docker-php-ext-enable redis
 
-#Install Horizon dependencies
+# Install Horizon dependencies (pcntl)
 RUN docker-php-ext-install pcntl
 
+# -----------------------------
+# Create unprivileged app user 'helios'
+# -----------------------------
+ARG APP_USER=helios
+ARG APP_GROUP=helios
+ARG APP_UID=1000
+ARG APP_GID=1000
+
+RUN groupadd -g ${APP_GID} ${APP_GROUP} \
+    && useradd -u ${APP_UID} -g ${APP_GROUP} -m -d /var/www/html ${APP_USER}
+
+# Make PHP-FPM run as helios instead of www-data
+RUN sed -ri 's/^user = www-data/user = helios/' /usr/local/etc/php-fpm.d/www.conf \
+ && sed -ri 's/^group = www-data/group = helios/' /usr/local/etc/php-fpm.d/www.conf
+
+# -----------------------------
+# Composer
+# -----------------------------
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Nginx + Supervisor configs live in docker-helionet repo
+# -----------------------------
+# Nginx + Supervisor configs (live in docker-helionet repo)
+# -----------------------------
 RUN rm -f /etc/nginx/nginx.conf /etc/nginx/sites-enabled/default
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/site.conf /etc/nginx/conf.d/default.conf
@@ -39,10 +62,18 @@ COPY nginx/site.conf /etc/nginx/conf.d/default.conf
 COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 COPY supervisor/laravel-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
 
+# -----------------------------
+# Application code
+# -----------------------------
 WORKDIR /var/www/html
 
-# ---- HERE is the magic: COPY app code from ./helionet subfolder ----
-COPY helionet/ ./
+# Copy app code from ./helionet subfolder and give ownership to helios
+COPY --chown=${APP_USER}:${APP_GROUP} helionet/ ./
+
+# -----------------------------
+# Install dependencies & optimize (as helios)
+# -----------------------------
+USER ${APP_USER}
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress || true
 
@@ -50,7 +81,17 @@ RUN php artisan config:cache || true \
  && php artisan route:cache || true \
  && php artisan view:cache || true
 
-RUN chown -R www-data:www-data /var/www
+# -----------------------------
+# Final permissions tweaks (still helios-owned, but ensure writable paths)
+# -----------------------------
+USER root
 
+# These are the important writable paths for Laravel; keep them owned by helios
+RUN chown -R ${APP_USER}:${APP_GROUP} /var/www/html/storage /var/www/html/bootstrap/cache || true
+
+# -----------------------------
+# Runtime
+# -----------------------------
 EXPOSE 80
+
 CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]

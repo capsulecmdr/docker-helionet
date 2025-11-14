@@ -67,6 +67,9 @@ COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 # -----------------------------
 WORKDIR /var/www/html
 
+# Clean any default files
+RUN rm -f /var/www/html/index.nginx-debian.html /var/www/html/helionet || true
+
 # Copy app code from ./helionet subfolder and give ownership to helios
 COPY --chown=${APP_USER}:${APP_GROUP} helionet/ ./
 

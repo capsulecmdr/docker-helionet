@@ -63,6 +63,15 @@ COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 #COPY supervisor/laravel-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
 
 # -----------------------------
+# Ensure nginx log files exist and are readable by PHP (helios + Log Viewer)
+# -----------------------------
+RUN mkdir -p /var/log/nginx \
+    && touch /var/log/nginx/access.log /var/log/nginx/error.log \
+    && chown ${APP_USER}:${APP_GROUP} /var/log/nginx/*.log \
+    && chmod 644 /var/log/nginx/*.log \
+    && chmod 755 /var/log/nginx
+
+# -----------------------------
 # Application code
 # -----------------------------
 WORKDIR /var/www/html
@@ -89,8 +98,11 @@ RUN php artisan config:cache || true \
 # -----------------------------
 USER root
 
-# These are the important writable paths for Laravel; keep them owned by helios
-RUN chown -R ${APP_USER}:${APP_GROUP} /var/www/html/storage /var/www/html/bootstrap/cache || true
+# Keep storage + cache owned by helios and ensure read/write perms
+RUN chown -R ${APP_USER}:${APP_GROUP} /var/www/html/storage /var/www/html/bootstrap/cache || true \
+    && chmod -R ug+rw /var/www/html/storage /var/www/html/bootstrap/cache || true \
+    && find /var/www/html/storage -type d -exec chmod 775 {} \; || true \
+    && find /var/www/html/storage -type f -exec chmod 664 {} \; || true
 
 # -----------------------------
 # Runtime

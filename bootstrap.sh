@@ -27,6 +27,12 @@ else
   exit 1
 fi
 
+# Helper to run commands in the web container as the helios user
+run_in_web() {
+  # usage: run_in_web "command here"
+  $COMPOSE_CMD exec -T -u helios web sh -lc "$*"
+}
+
 ########################################
 # 1. Are we already inside the repo?
 ########################################
@@ -96,7 +102,7 @@ else
 fi
 
 ########################################
-# 5. Ensure application .env exists
+# 5. Ensure application .env exists (Laravel)
 ########################################
 
 APP_ENV_FILE="$APP_DIR/.env"
@@ -109,6 +115,7 @@ fi
 
 if [[ ! -f "$APP_ENV_FILE" ]]; then
   echo "[helionet] WARNING: app .env not found at '$APP_ENV_FILE'."
+  echo "[helionet]          key:generate will fail until you create it."
 fi
 
 ########################################
@@ -124,7 +131,7 @@ if [[ -f "$APP_ENV_FILE" ]]; then
     local value="$2"
     local file="$3"
 
-    # Escape forward slashes in value for sed
+    # Escape / and & for sed
     local esc_value
     esc_value=$(printf '%s\n' "$value" | sed 's/[\/&]/\\&/g')
 
@@ -169,36 +176,48 @@ $COMPOSE_CMD up -d
 # 8. App post-setup inside container
 ########################################
 
-echo "[helionet] checking for vendor/autoload.php..."
+# 8a. Composer install (inside web container, as helios)
+echo "[helionet] checking for vendor/autoload.php on host..."
 if [[ ! -f "$APP_DIR/vendor/autoload.php" ]]; then
   echo "[helionet] vendor not found, attempting composer install in web container..."
   if $COMPOSE_CMD exec -T web sh -lc 'command -v composer >/dev/null 2>&1'; then
-    $COMPOSE_CMD exec -T web composer install --no-interaction --prefer-dist --optimize-autoloader
+    run_in_web "cd /var/www/html && composer install --no-interaction --prefer-dist --optimize-autoloader"
     echo "[helionet] composer install complete"
   else
     echo "[helionet] WARNING: composer not found in web container."
     echo "[helionet]          Please run 'composer install' manually in ../helionet."
   fi
 else
-  echo "[helionet] vendor/autoload.php present, skipping composer install"
+  echo "[helionet] vendor/autoload.php present on host, skipping composer install"
 fi
 
+# 8b. Ensure APP_KEY is set (and .env exists) inside the container
 echo "[helionet] ensuring APP_KEY is set..."
 if [[ -f "$APP_ENV_FILE" ]]; then
+  # Make sure the container sees an .env (bind mount should, but belt & suspenders)
+  run_in_web 'cd /var/www/html && [ -f .env ] || ( [ -f .env.example ] && cp .env.example .env )'
+
   if grep -q '^APP_KEY=$' "$APP_ENV_FILE" 2>/dev/null || ! grep -q '^APP_KEY=' "$APP_ENV_FILE" 2>/dev/null; then
     echo "[helionet] running php artisan key:generate in web container..."
-    $COMPOSE_CMD exec -T web php artisan key:generate --force || {
+    if ! run_in_web "cd /var/www/html && php artisan key:generate --force"; then
       echo "[helionet] WARNING: failed to run key:generate. Check container logs."
-    }
+    fi
   else
     echo "[helionet] APP_KEY already set in app .env"
   fi
+else
+  echo "[helionet] WARNING: APP_KEY check skipped; app .env not present on host."
 fi
 
+# 8c. Migrations & queue tables, as helios
 echo "[helionet] completing initial migrations..."
-$COMPOSE_CMD exec -T web php artisan config:clear
-$COMPOSE_CMD exec -T web php artisan queue:failed-table || true
-$COMPOSE_CMD exec -T web php artisan migrate
+run_in_web "cd /var/www/html && php artisan config:clear"
+run_in_web "cd /var/www/html && php artisan queue:failed-table || true"
+run_in_web "cd /var/www/html && php artisan migrate --force"
+
+########################################
+# 9. Start worker and scheduler containers
+########################################
 
 echo "[helionet] starting worker and scheduler containers..."
 $COMPOSE_CMD up -d worker

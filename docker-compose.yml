@@ -14,17 +14,6 @@ services:
     networks:
       - internal
       - public
-    environment:
-      # Laravel will mainly use /var/www/html/.env, but these help for CLI and defaults
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: http://localhost:8080
-
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_DATABASE: ${DB_DATABASE:-helionet}
-      DB_USERNAME: ${DB_USERNAME:-helionet}
-      DB_PASSWORD: ${DB_PASSWORD:-secret}
 
   worker:
     image: ghcr.io/capsulecmdr/helionet:latest

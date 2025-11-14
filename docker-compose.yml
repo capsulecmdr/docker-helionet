@@ -35,7 +35,7 @@ services:
     networks:
       - internal
     # Override CMD from Dockerfile: run the queue worker instead of supervisord
-    command: php artisan queue:work --sleep=3 --tries=3
+    command: php artisan horizon
 
   scheduler:
     image: ghcr.io/capsulecmdr/helionet:latest

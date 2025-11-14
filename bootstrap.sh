@@ -172,6 +172,11 @@ $COMPOSE_CMD pull
 echo "[helionet] starting containers..."
 $COMPOSE_CMD up -d
 
+echo "[helionet] waiting for db container to be ready..."
+until docker compose exec db mysqladmin ping -h"db" --silent; do
+  sleep 1
+done
+
 ########################################
 # 8. App post-setup inside container
 ########################################
@@ -212,7 +217,7 @@ fi
 # 8c. Migrations & queue tables, as helios
 echo "[helionet] completing initial migrations..."
 run_in_web "cd /var/www/html && php artisan config:clear"
-run_in_web "cd /var/www/html && php artisan queue:failed-table || true"
+#run_in_web "cd /var/www/html && php artisan queue:failed-table || true"
 run_in_web "cd /var/www/html && php artisan migrate --force"
 
 ########################################

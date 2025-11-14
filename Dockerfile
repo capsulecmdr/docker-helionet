@@ -60,7 +60,7 @@ COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/site.conf /etc/nginx/conf.d/default.conf
 
 COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
-COPY supervisor/laravel-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
+#COPY supervisor/laravel-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
 
 # -----------------------------
 # Application code

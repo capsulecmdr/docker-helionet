@@ -45,7 +45,7 @@ fi
 ########################################
 run_in_web() {
   # usage: run_in_web "command here"
-  $COMPOSE_CMD exec -T -u helios web sh -lc "$*"
+  $COMPOSE_CMD exec -T web sh -lc "$*"
 }
 
 ########################################

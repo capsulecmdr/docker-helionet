@@ -99,10 +99,11 @@ RUN php artisan route:cache || true \
 USER root
 
 # Keep storage + cache owned by helios and ensure read/write perms
-RUN chown -R ${APP_USER}:${APP_GROUP} /var/www/html/storage /var/www/html/bootstrap/cache || true \
-    && chmod -R ug+rw /var/www/html/storage /var/www/html/bootstrap/cache || true \
-    && find /var/www/html/storage -type d -exec chmod 775 {} \; || true \
-    && find /var/www/html/storage -type f -exec chmod 664 {} \; || true
+RUN mkdir -p /var/www/html/storage/logs \
+    && chown -R ${APP_USER}:${APP_GROUP} /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R ug+rw /var/www/html/storage /var/www/html/bootstrap/cache \
+    && find /var/www/html/storage -type d -exec chmod 775 {} \; \
+    && find /var/www/html/storage -type f -exec chmod 664 {} \;
 
 # -----------------------------
 # Runtime

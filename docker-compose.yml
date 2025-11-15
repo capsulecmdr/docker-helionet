@@ -1,8 +1,7 @@
 services:
   web:
-    image: ghcr.io/capsulecmdr/helionet:latest
-    user: "helios"    
-    working_dir: /var/www/html
+    image: ghcr.io/capsulecmdr/helionet:latest    
+    user: "helios"
     container_name: helionet-web
     depends_on:
       db:
@@ -11,8 +10,9 @@ services:
         condition: service_healthy
     ports:
       - "8080:80"          # http://localhost:8080 → app
-    #volumes:
-    #  - ../helionet:/var/www/html # comment this out for production use.
+    volumes:
+    #  - ../helionet:/var/www/html
+       - app_storage:/var/www/html/storage
     networks:
       - internal
       - public
@@ -54,15 +54,15 @@ services:
   worker:
     image: ghcr.io/capsulecmdr/helionet:latest
     user: "helios"
-    working_dir: /var/www/html
     container_name: helionet-worker
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    #volumes:
+    volumes:
     #  - ../helionet:/var/www/html
+       - app_storage:/var/www/html/storage
     networks:
       - internal
     # Run Horizon instead of supervisord
@@ -100,15 +100,15 @@ services:
   scheduler:
     image: ghcr.io/capsulecmdr/helionet:latest
     user: "helios"    
-    working_dir: /var/www/html
     container_name: helionet-scheduler
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    #volumes:
+    volumes:
     #  - ../helionet:/var/www/html
+       - app_storage:/var/www/html/storage
     networks:
       - internal
     # Continuous scheduler loop
@@ -185,6 +185,7 @@ services:
 volumes:
   db_data:
   redis_data:
+  app_storage:
 
 networks:
   internal:

@@ -11,10 +11,6 @@ cat << "EOF"
 EOF
 printf "\e[0m\n"
 
-
-
-
-
 set -euo pipefail
 
 REPO_URL="https://github.com/capsulecmdr/docker-helionet.git"
@@ -41,7 +37,7 @@ else
 fi
 
 ########################################
-# Helper: run a command in the web container as helios
+# Helper: run a command in the web container
 ########################################
 run_in_web() {
   # usage: run_in_web "command here"
@@ -136,8 +132,6 @@ $COMPOSE_CMD up -d web db redis
 ########################################
 echo "[helionet] running migrations in web container..."
 # Clear cached config in case APP_KEY / DB_ vars changed
-# run_in_web "cd /var/www/html && php artisan config:clear || true"
-# run_in_web "cd /var/www/html && php artisan migrate --force"
 $COMPOSE_CMD exec web php artisan config:clear || true
 $COMPOSE_CMD exec web php artisan migrate || true
 

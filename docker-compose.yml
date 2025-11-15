@@ -52,7 +52,6 @@ services:
 
   worker:
     image: ghcr.io/capsulecmdr/helionet:latest
-    user: "helios"
     container_name: helionet-worker
     depends_on:
       db:
@@ -97,8 +96,7 @@ services:
       TRUSTED_HOSTS: ${TRUSTED_HOSTS:-localhost,127.0.0.1}
 
   scheduler:
-    image: ghcr.io/capsulecmdr/helionet:latest
-    user: "helios"    
+    image: ghcr.io/capsulecmdr/helionet:latest 
     container_name: helionet-scheduler
     depends_on:
       db:

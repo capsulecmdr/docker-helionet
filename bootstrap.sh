@@ -132,8 +132,9 @@ $COMPOSE_CMD up -d web db redis
 ########################################
 echo "[helionet] running migrations in web container..."
 # Clear cached config in case APP_KEY / DB_ vars changed
-$COMPOSE_CMD exec web php artisan config:clear || true
-$COMPOSE_CMD exec web php artisan migrate || true
+run_in_web "cd /var/www/html && php artisan config:clear || true"
+# In production, migrate MUST use --force (non-interactive)
+run_in_web "cd /var/www/html && php artisan migrate --force || true"
 
 ########################################
 # 5. Ensure worker and scheduler containers are up

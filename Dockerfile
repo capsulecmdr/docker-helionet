@@ -71,7 +71,7 @@ RUN rm -f /var/www/html/index.nginx-debian.html /var/www/html/helionet || true
 
 # NOTE:
 # If you are baking the app into the image, you would do:
-# COPY helionet/ ./
+COPY helionet/ ./
 # and then run composer/artisan below.
 # If you're using a bind mount, these commands are effectively no-ops.
 

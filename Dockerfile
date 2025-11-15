@@ -40,8 +40,8 @@ ARG APP_GROUP=helios
 ARG APP_UID=1000
 ARG APP_GID=1000
 
-RUN groupadd -g ${APP_GID} ${APP_GROUP} \
-    && useradd -u ${APP_UID} -g ${APP_GROUP} -m -d /var/www/html ${APP_USER}
+# RUN groupadd -g ${APP_GID} ${APP_GROUP} \
+#     && useradd -u ${APP_UID} -g ${APP_GROUP} -m -d /var/www/html ${APP_USER}
 
 # Make PHP-FPM run as helios instead of www-data
 RUN sed -ri 's/^user = www-data/user = helios/' /usr/local/etc/php-fpm.d/www.conf \
@@ -67,7 +67,7 @@ COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 # -----------------------------
 RUN mkdir -p /var/log/nginx \
     && touch /var/log/nginx/access.log /var/log/nginx/error.log \
-    && chown ${APP_USER}:${APP_GROUP} /var/log/nginx/*.log \
+    # && chown ${APP_USER}:${APP_GROUP} /var/log/nginx/*.log \
     && chmod 644 /var/log/nginx/*.log \
     && chmod 755 /var/log/nginx
 
@@ -80,12 +80,12 @@ WORKDIR /var/www/html
 RUN rm -f /var/www/html/index.nginx-debian.html /var/www/html/helionet || true
 
 # Copy app code from ./helionet subfolder and give ownership to helios
-COPY --chown=${APP_USER}:${APP_GROUP} helionet/ ./
+# COPY --chown=${APP_USER}:${APP_GROUP} helionet/ ./
 
 # -----------------------------
 # Install dependencies & optimize (as helios)
 # -----------------------------
-USER ${APP_USER}
+# USER ${APP_USER}
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress || true
 
@@ -99,17 +99,17 @@ RUN php artisan route:cache || true \
 USER root
 
 # Keep storage + cache owned by helios and ensure read/write perms
-RUN mkdir -p /var/www/html/storage/logs \
-    && chown -R ${APP_USER}:${APP_GROUP} /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R ug+rw /var/www/html/storage /var/www/html/bootstrap/cache \
-    && find /var/www/html/storage -type d -exec chmod 775 {} \; \
-    && find /var/www/html/storage -type f -exec chmod 664 {} \;
+# RUN mkdir -p /var/www/html/storage/logs \
+#     && chown -R ${APP_USER}:${APP_GROUP} /var/www/html/storage /var/www/html/bootstrap/cache \
+#     && chmod -R ug+rw /var/www/html/storage /var/www/html/bootstrap/cache \
+#     && find /var/www/html/storage -type d -exec chmod 775 {} \; \
+#     && find /var/www/html/storage -type f -exec chmod 664 {} \;
 
 # -----------------------------
 # Runtime
 # -----------------------------
 
-USER ${APP_USER}
+# USER ${APP_USER}
 
 EXPOSE 80
 

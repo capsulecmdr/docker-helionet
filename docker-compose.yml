@@ -1,7 +1,6 @@
 services:
   web:
     image: ghcr.io/capsulecmdr/helionet:latest    
-    user: "helios"
     container_name: helionet-web
     depends_on:
       db:

@@ -1,7 +1,8 @@
 services:
   web:
     image: ghcr.io/capsulecmdr/helionet:latest
-    user: "helios"
+    user: "helios"    
+    working_dir: /var/www/html
     container_name: helionet-web
     depends_on:
       db:
@@ -53,6 +54,7 @@ services:
   worker:
     image: ghcr.io/capsulecmdr/helionet:latest
     user: "helios"
+    working_dir: /var/www/html
     container_name: helionet-worker
     depends_on:
       db:
@@ -97,7 +99,8 @@ services:
 
   scheduler:
     image: ghcr.io/capsulecmdr/helionet:latest
-    user: "helios"
+    user: "helios"    
+    working_dir: /var/www/html
     container_name: helionet-scheduler
     depends_on:
       db:

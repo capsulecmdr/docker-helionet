@@ -108,6 +108,9 @@ RUN mkdir -p /var/www/html/storage/logs \
 # -----------------------------
 # Runtime
 # -----------------------------
+
+USER ${APP_USER}
+
 EXPOSE 80
 
 CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]

@@ -80,7 +80,7 @@ cat << "EOF"
 EOF
 printf "\e[0m\n"
 
-log_msg "Init" 1 4 "INFO" "Starting HelioNET bootstrap..."
+log_msg "Init" 1 5 "INFO" "Starting HelioNET bootstrap..."
 echo
 echo "This script will install Docker and Docker Compose (if needed),"
 echo "download the HelioNET docker environment, configure host cron,"
@@ -90,12 +90,12 @@ echo
 ########################################
 # Init: root check
 ########################################
-log_msg "Init" 2 4 "INFO" "Verifying script is running as root..."
+log_msg "Init" 2 5 "INFO" "Verifying script is running as root..."
 if (( EUID != 0 )); then
-  log_msg "Init" 2 4 "ERROR" "This script must be run with root permissions. Please re-run with 'sudo'."
+  log_msg "Init" 2 5 "ERROR" "This script must be run with root permissions. Please re-run with 'sudo'."
   exit 1
 fi
-log_msg "Init" 2 4 "OK" "Root permissions confirmed."
+log_msg "Init" 2 5 "OK" "Root permissions confirmed."
 
 ########################################
 # Init: choose install directory
@@ -103,7 +103,7 @@ log_msg "Init" 2 4 "OK" "Root permissions confirmed."
 DEFAULT_INSTALL_DIR="/opt/docker-helionet"
 INSTALL_DIR=""
 
-log_msg "Init" 3 4 "INFO" "Prompting for install directory..."
+log_msg "Init" 3 5 "INFO" "Prompting for install directory..."
 read -rp "> Install directory [${DEFAULT_INSTALL_DIR}]: " USER_INPUT
 if [[ -z "$USER_INPUT" ]]; then
   INSTALL_DIR="$DEFAULT_INSTALL_DIR"
@@ -129,10 +129,31 @@ read -r -p " Are you ready to continue? [Y/n]: " -n 1
 echo
 # Treat empty as "Yes"
 if [[ -n "${REPLY:-}" && ! "$REPLY" =~ ^[Yy]$ ]]; then
-  log_msg "Init" 4 4 "WARN" "Installation aborted by user."
+  log_msg "Init" 4 5 "WARN" "Installation aborted by user."
   exit 1
 fi
-log_msg "Init" 4 4 "OK" "User confirmed installation. Proceeding..."
+log_msg "Init" 4 5 "OK" "User confirmed installation. Proceeding..."
+
+DEFAULT_DOMAIN="http://localhost:8080"
+
+log_msg "Init" 5 5 "INFO" "Prompting for HelioNET domain..."
+echo "What domain or URL will you use to access HelioNET?"
+echo "Examples:"
+echo "  https://helionet.example.com"
+echo "  http://192.168.1.50:8080"
+echo "  http://localhost:8080"
+echo
+read -rp "> HelioNET URL [${DEFAULT_DOMAIN}]: " USER_DOMAIN
+echo
+
+# Use default if empty
+if [[ -z "$USER_DOMAIN" ]]; then
+  HELIONET_DOMAIN="$DEFAULT_DOMAIN"
+else
+  HELIONET_DOMAIN="$(echo "$USER_DOMAIN" | xargs)"  # trim whitespace
+fi
+
+log_msg "Init" 5 5 "OK" "Using HelioNET domain: $HELIONET_DOMAIN"
 
 REPO_URL="https://github.com/capsulecmdr/docker-helionet.git"
 
@@ -238,9 +259,33 @@ if [[ ! -f .env ]]; then
   fi
   echo "  Generated APP_KEY."
 
+  #
+  # Set APP_URL in .env
+  #
+  if grep -q "^APP_URL=" .env; then
+    # escape slashes for sed
+    esc_domain=$(printf '%s\n' "$HELIONET_DOMAIN" | sed 's/[\/&]/\\&/g')
+    sed -i "s/^APP_URL=.*/APP_URL=${esc_domain}/" .env
+  else
+    echo "APP_URL=${HELIONET_DOMAIN}" >> .env
+  fi
+
+  echo "  Set APP_URL=${HELIONET_DOMAIN}"
+
   log_msg "Env" 2 2 "OK" ".env created and secrets generated."
 else
   log_msg "Env" 2 2 "OK" "Existing .env found — skipping env generation."
+  
+  # Always ensure APP_URL is correct
+  esc_domain=$(printf '%s\n' "$HELIONET_DOMAIN" | sed 's/[\/&]/\\&/g')
+
+  if grep -q "^APP_URL=" .env; then
+    sed -i "s/^APP_URL=.*/APP_URL=${esc_domain}/" .env
+  else
+    echo "APP_URL=${HELIONET_DOMAIN}" >> .env
+  fi
+
+  log_msg "Env" 2 2 "OK" "Updated APP_URL=${HELIONET_DOMAIN}"
 fi
 
 ########################################

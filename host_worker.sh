@@ -46,28 +46,29 @@ if [[ ! -f "$QUEUE_FILE" ]]; then
 fi
 
 # -----------------------------------
-# Process queue file
+# Process queue file line-by-line
 # -----------------------------------
 if [[ ! -s "$QUEUE_FILE" ]]; then
-  # File exists but is empty
   log_host_worker INFO "Queue file is empty; nothing to process."
 else
   log_host_worker INFO "Processing commands from queue file: ${QUEUE_FILE}"
 
-  # Read each line as a command
-  # The '|| [[ -n "$line" ]]' ensures the last line is processed even if it lacks a trailing newline.
+  # Continue loop as long as file still has lines
   while IFS= read -r line || [[ -n "$line" ]]; do
-    # Skip empty lines and comment lines
-    if [[ -z "$line" ]]; then
-      continue
-    fi
-    if [[ "$line" =~ ^[[:space:]]*# ]]; then
+
+    # Remove the processed line BEFORE running it,
+    # so even if execution fails the command won't rerun.
+    tmp_queue="$(mktemp)"
+    tail -n +2 "$QUEUE_FILE" > "$tmp_queue"    # drop the first line
+    mv "$tmp_queue" "$QUEUE_FILE"
+
+    # Skip empty or commented lines
+    if [[ -z "$line" ]] || [[ "$line" =~ ^[[:space:]]*# ]]; then
       continue
     fi
 
     log_host_worker INFO "Executing queued command: ${line}"
 
-    # Temporarily disable 'exit on error' so we can capture failures without killing the script
     set +e
     output=$(bash -c "$line" 2>&1)
     status=$?
@@ -78,11 +79,10 @@ else
     else
       log_host_worker ERROR "Command failed (exit ${status}): ${line} | output: ${output}"
     fi
+
   done < "$QUEUE_FILE"
 
-  # After processing, clear the queue so commands don't run again next time.
-  : > "$QUEUE_FILE"
-  log_host_worker INFO "Queue file processed and cleared."
+  log_host_worker INFO "Queue processing complete."
 fi
 
 # -----------------------------------

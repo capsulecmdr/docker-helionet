@@ -10,6 +10,12 @@ LOG_FILE="${1:-/tmp/host_worker.log}"
 QUEUE_DIR="/var/lib/docker/volumes/docker-helionet_app_storage/_data"
 QUEUE_FILE="${QUEUE_DIR}/host_worker.queue"
 
+# Simple lock file to prevent concurrent runs
+LOCK_FILE="/tmp/host_worker.lock"
+
+# Max log lines
+MAX_LOG_LINES=1000
+
 # -----------------------------------
 # Logging helper
 # -----------------------------------
@@ -26,9 +32,16 @@ log_host_worker() {
 }
 
 # -----------------------------------
-# Start
+# Acquire lock (non-blocking)
+# If already locked, exit silently
 # -----------------------------------
-#log_host_worker INFO "host-worker starting..."
+if ( set -o noclobber; echo "$$" > "$LOCK_FILE" ) 2>/dev/null; then
+  # We own the lock; ensure it is released on exit
+  trap 'rm -f "$LOCK_FILE"' EXIT
+else
+  # Another instance is running; exit quietly
+  exit 0
+fi
 
 # -----------------------------------
 # Ensure queue directory & file exist
@@ -42,31 +55,35 @@ fi
 if [[ ! -f "$QUEUE_FILE" ]]; then
   log_host_worker WARNING "Queue file missing: ${QUEUE_FILE}"
   touch "$QUEUE_FILE"
-  
+
+  # Seed the queue with a default command showing host | ip | cwd
   printf 'echo "%s | %s | %s"\n' \
-  "$(hostname -f 2>/dev/null || hostname)" \
-  "$(curl -s ifconfig.me || echo unknown_ip)" \
-  "$(pwd)" \
-  > /var/lib/docker/volumes/docker-helionet_app_storage/_data/host_worker.queue
+    "$(hostname -f 2>/dev/null || hostname)" \
+    "$(curl -s ifconfig.me || echo unknown_ip)" \
+    "$(pwd)" \
+    > "$QUEUE_FILE"
 
   log_host_worker INFO "Created new queue file: ${QUEUE_FILE}"
 fi
 
 # -----------------------------------
-# Process queue file line-by-line
+# Process queue file line-by-line (FIFO)
 # -----------------------------------
-if [[ ! -s "$QUEUE_FILE" ]]; then
-  : #log_host_worker INFO "Queue file is empty; nothing to process."
-else
+if [[ -s "$QUEUE_FILE" ]]; then
   #log_host_worker INFO "Processing commands from queue file: ${QUEUE_FILE}"
 
-  # Continue loop as long as file still has lines
-  while IFS= read -r line || [[ -n "$line" ]]; do
+  while :; do
+    # Stop if file is now empty
+    if [[ ! -s "$QUEUE_FILE" ]]; then
+      break
+    fi
 
-    # Remove the processed line BEFORE running it,
-    # so even if execution fails the command won't rerun.
+    # Read the first line only
+    line="$(head -n 1 "$QUEUE_FILE" || true)"
+
+    # Remove the first line from the queue file *before* executing
     tmp_queue="$(mktemp)"
-    tail -n +2 "$QUEUE_FILE" > "$tmp_queue"    # drop the first line
+    tail -n +2 "$QUEUE_FILE" > "$tmp_queue" 2>/dev/null || true
     mv "$tmp_queue" "$QUEUE_FILE"
 
     # Skip empty or commented lines
@@ -87,26 +104,25 @@ else
       log_host_worker ERROR "Command failed (exit ${status}): ${line} | output: ${output}"
     fi
 
-  done < "$QUEUE_FILE"
+    # 3 second delay between commands
+    sleep 3
+  done
 
   #log_host_worker INFO "Queue processing complete."
+else
+  : #log_host_worker INFO "Queue file is empty; nothing to process."
 fi
 
 # -----------------------------------
-# Trim log file to max 100 lines
+# Trim log file to max N lines
 # -----------------------------------
-MAX_LOG_LINES=1000
-
-current_lines=$(wc -l < "$LOG_FILE" || echo 0)
+current_lines=$(wc -l < "$LOG_FILE" 2>/dev/null || echo 0)
 
 if (( current_lines > MAX_LOG_LINES )); then
   #log_host_worker INFO "Log file exceeds ${MAX_LOG_LINES} lines (${current_lines}). Trimming..."
-
-  # Use a temp file to avoid issues when tailing to itself
   tmp_log="$(mktemp)"
   tail -n "$MAX_LOG_LINES" "$LOG_FILE" > "$tmp_log"
   mv "$tmp_log" "$LOG_FILE"
-
   log_host_worker INFO "Log file trimmed to ${MAX_LOG_LINES} lines."
 fi
 

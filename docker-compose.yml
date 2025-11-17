@@ -145,17 +145,16 @@ services:
     container_name: helionet-db
     restart: unless-stopped
     environment:
-      DB_HOST: ${DB_HOST:-db}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_DATABASE: ${DB_DATABASE:-helionet}
-      DB_USERNAME: ${DB_USERNAME:-helionet}
-      DB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_DATABASE}
+      MARIADB_USER: ${DB_USERNAME}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
     volumes:
       - db_data:/var/lib/mysql
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$DB_USERNAME -p$DB_PASSWORD > /dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$MARIADB_USER -p$MARIADB_PASSWORD > /dev/null 2>&1 || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 10

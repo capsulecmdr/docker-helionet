@@ -28,7 +28,7 @@ log_host_worker() {
 # -----------------------------------
 # Start
 # -----------------------------------
-log_host_worker INFO "host-worker starting..."
+#log_host_worker INFO "host-worker starting..."
 
 # -----------------------------------
 # Ensure queue directory & file exist
@@ -49,9 +49,9 @@ fi
 # Process queue file line-by-line
 # -----------------------------------
 if [[ ! -s "$QUEUE_FILE" ]]; then
-  log_host_worker INFO "Queue file is empty; nothing to process."
+  #log_host_worker INFO "Queue file is empty; nothing to process."
 else
-  log_host_worker INFO "Processing commands from queue file: ${QUEUE_FILE}"
+  #log_host_worker INFO "Processing commands from queue file: ${QUEUE_FILE}"
 
   # Continue loop as long as file still has lines
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -67,7 +67,7 @@ else
       continue
     fi
 
-    log_host_worker INFO "Executing queued command: ${line}"
+    #log_host_worker INFO "Executing queued command: ${line}"
 
     set +e
     output=$(bash -c "$line" 2>&1)
@@ -82,18 +82,18 @@ else
 
   done < "$QUEUE_FILE"
 
-  log_host_worker INFO "Queue processing complete."
+  #log_host_worker INFO "Queue processing complete."
 fi
 
 # -----------------------------------
 # Trim log file to max 100 lines
 # -----------------------------------
-MAX_LOG_LINES=100
+MAX_LOG_LINES=1000
 
 current_lines=$(wc -l < "$LOG_FILE" || echo 0)
 
 if (( current_lines > MAX_LOG_LINES )); then
-  log_host_worker INFO "Log file exceeds ${MAX_LOG_LINES} lines (${current_lines}). Trimming..."
+  #log_host_worker INFO "Log file exceeds ${MAX_LOG_LINES} lines (${current_lines}). Trimming..."
 
   # Use a temp file to avoid issues when tailing to itself
   tmp_log="$(mktemp)"
@@ -103,4 +103,4 @@ if (( current_lines > MAX_LOG_LINES )); then
   log_host_worker INFO "Log file trimmed to ${MAX_LOG_LINES} lines."
 fi
 
-log_host_worker INFO "host-worker finished"
+#log_host_worker INFO "host-worker finished"

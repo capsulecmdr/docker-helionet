@@ -145,16 +145,16 @@ services:
     container_name: helionet-db
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-helionet}
-      MYSQL_USER: ${DB_USERNAME:-helionet}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      DB_DATABASE: ${DB_DATABASE:-helionet}
+      DB_USER: ${DB_USERNAME:-helionet}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
     volumes:
       - db_data:/var/lib/mysql
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$MYSQL_USER -p$MYSQL_PASSWORD > /dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$DB_USER -p$DB_PASSWORD > /dev/null 2>&1 || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 10

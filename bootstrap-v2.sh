@@ -1,9 +1,56 @@
 #!/bin/bash
 
-# this script attempts to bootstrap and deploy a HelioNET environment.
-
+# HelioNET bootstrap & deploy script
 # 2025 @Orsiki
 
+set -euo pipefail
+
+########################################
+# Colors & logging helpers
+########################################
+RESET="\e[0m"
+COLOR_INFO="\e[36m"   # cyan
+COLOR_OK="\e[32m"     # green
+COLOR_WARN="\e[33m"   # yellow
+COLOR_ERR="\e[31m"    # red
+
+log_msg() {
+  local stage="$1"
+  local step="$2"
+  local total="$3"
+  local level="$4"
+  shift 4
+  local msg="$*"
+
+  local tag=""
+  local color="$COLOR_INFO"
+
+  case "$level" in
+    OK)
+      tag="[OK]"
+      color="$COLOR_OK"
+      ;;
+    WARN)
+      tag="[WARN]"
+      color="$COLOR_WARN"
+      ;;
+    ERROR)
+      tag="[ERR]"
+      color="$COLOR_ERR"
+      ;;
+    INFO|*)
+      tag="[INFO]"
+      color="$COLOR_INFO"
+      ;;
+  esac
+
+  printf "%b[HelioNET | %s %s/%s] %s %s%b\n" \
+    "$color" "$stage" "$step" "$total" "$tag" "$msg" "$RESET"
+}
+
+########################################
+# Banner
+########################################
 printf "\e[36m"
 cat << "EOF"
               ################
@@ -33,215 +80,146 @@ cat << "EOF"
 EOF
 printf "\e[0m\n"
 
-set -euo pipefail
-
-echo "================================"
-echo "      HelioNET Bootstrap"
-echo "================================"
+log_msg "Init" 1 4 "INFO" "Starting HelioNET bootstrap..."
 echo
-echo "This script will install Docker and Docker Compose, download all required components and dependencies, configure scheduled tasks, and start the HelioNET environment."
-
+echo "This script will install Docker and Docker Compose (if needed),"
+echo "download the HelioNET docker environment, configure host cron,"
+echo "and start the HelioNET containers."
 echo
 
+########################################
+# Init: root check
+########################################
+log_msg "Init" 2 4 "INFO" "Verifying script is running as root..."
+if (( EUID != 0 )); then
+  log_msg "Init" 2 4 "ERROR" "This script must be run with root permissions. Please re-run with 'sudo'."
+  exit 1
+fi
+log_msg "Init" 2 4 "OK" "Root permissions confirmed."
 
-# Variables
+########################################
+# Init: choose install directory
+########################################
 DEFAULT_INSTALL_DIR="/opt/docker-helionet"
 INSTALL_DIR=""
 
-REPO_URL="https://github.com/capsulecmdr/docker-helionet.git"
-REPO_DIR="docker-helionet"
-
-
-
-###########################
-# 1. setup installation
-###########################
-echo "Where would you like to install HelioNET?"
+log_msg "Init" 3 4 "INFO" "Prompting for install directory..."
 read -rp "> Install directory [${DEFAULT_INSTALL_DIR}]: " USER_INPUT
-
-# Determine final path
 if [[ -z "$USER_INPUT" ]]; then
   INSTALL_DIR="$DEFAULT_INSTALL_DIR"
 else
   INSTALL_DIR="$USER_INPUT"
 fi
 
-# Strip possible trailing slash for consistency
-INSTALL_DIR="${INSTALL_DIR%/}"
+INSTALL_DIR="${INSTALL_DIR%/}"  # strip trailing slash
 
-echo -e "\n  Installing to: $INSTALL_DIR"
+echo
+echo "  Installing to: $INSTALL_DIR"
 
-# Check if directory exists
 if [[ -d "$INSTALL_DIR" ]]; then
   echo "  Directory exists. Proceeding..."
 else
-  echo "  Directory does not exist."
-  read -rp "  > Would you like to create it? [y/N]: " CREATE_DIR
-  CREATE_DIR="${CREATE_DIR,,}"  # lowercase
-
-  if [[ "$CREATE_DIR" == "y" || "$CREATE_DIR" == "yes" ]]; then
-    echo "  Creating directory..."
-    sudo mkdir -p "$INSTALL_DIR"
-    echo "  Directory created."
-  else
-    echo "  Install aborted. Directory does not exist."
-    exit 1
-  fi
+  echo "  Directory does not exist. Creating..."
+  mkdir -p "$INSTALL_DIR"
+  echo "  Directory created."
 fi
 
-# At this point $INSTALL_DIR exists
-echo -e "\n# Proceeding with installation in: $INSTALL_DIR"
 echo
-
-# ensure user is ready to continue
-read -rp " Are you ready to continue? [Y/n]: " -n 1
-
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-    echo -e "\n !Aborting installation!"
-    exit 1
-fi
-
-# validate root permissions
-if (( $EUID != 0 )); then
-
-    echo -e "\n This script must be run with root permissions. Please re-run with 'sudo'."
-    exit
-fi
-
-###########################
-# 2. Validate Dependencies
-###########################
-# Have curl?
-if ! [ -x "$(command -v curl)" ]; then
-
-    echo -e "\n curl is not installed. Installing..."
-
-    apt update && apt install -y curl
-    
-    echo -e "\n curl installed"
-fi
-
-# Have docker?
-if ! [ -x "$(command -v docker)" ]; then
-
-    echo -e "\n Docker is not installed. Installing..."
-
-    sh <(curl -fsSL get.docker.com)
-
-    echo -e "\n Docker installed"
-fi
-
-
-###########################
-# setup host cron job
-###########################
-CRON_JOB="* * * * * $INSTALL_DIR/host_worker.sh $INSTALL_DIR/log/host_worker.log >> $INSTALL_DIR/log/host_worker.log 2>&1"
-
-existing_cron=$(crontab -l 2>/dev/null || true)
-
-# Check if the cron job already exists
-if echo "$existing_cron" | grep -Fq "$CRON_JOB"; then
-    echo -e "\n  Cron job already exists. No changes made."
-else
-    echo -e "\n  Adding cron job..."
-    # Append the new job and install it
-    (echo "$existing_cron"; echo "$CRON_JOB") | crontab -
-    echo -e "\n  Cron job added successfully."
-fi
-
-if [[ ! -f "$INSTALL_DIR/log" ]]; then
-    echo -e "\n  Creating log directory..."
-    mkdir -p "$INSTALL_DIR/log"
-    echo -e "\n  Log directory created."
-fi
-
-if [[ ! -f "$INSTALL_DIR/log/host_worker.log" ]]; then
-    echo -e "\n  Creating host_worker.log file..."
-    touch "$INSTALL_DIR/log/host_worker.log"
-    echo -e "\n  host_worker.log file created."
-fi
-
-
-###########################
-# setup docker compose command
-###########################
-
-# Prefer 'docker compose' but fall back to 'docker-compose'
-if docker compose version >/dev/null 2>&1; then
-  COMPOSE_CMD="docker compose"
-elif command -v docker-compose >/dev/null 2>&1; then
-  COMPOSE_CMD="docker-compose"
-else
-  echo "[helionet] ERROR: neither 'docker compose' nor 'docker-compose' is available."
+read -r -p " Are you ready to continue? [Y/n]: " -n 1
+echo
+# Treat empty as "Yes"
+if [[ -n "${REPLY:-}" && ! "$REPLY" =~ ^[Yy]$ ]]; then
+  log_msg "Init" 4 4 "WARN" "Installation aborted by user."
   exit 1
 fi
+log_msg "Init" 4 4 "OK" "User confirmed installation. Proceeding..."
 
-###########################
-# Helper: run a command in the web container
-###########################
-run_in_web() {
-  # usage: run_in_web "command here"
-  $COMPOSE_CMD exec -T web sh -lc "$*"
-}
+REPO_URL="https://github.com/capsulecmdr/docker-helionet.git"
 
 ########################################
-# 1. Ensure we are in docker-helionet repo
+# Deps: validate / install dependencies
 ########################################
-IN_REPO=0
-
-if [[ -d .git ]] || [[ -f docker-compose.yml ]] || [[ -f docker-compose.yaml ]]; then
-  IN_REPO=1
-fi
-
-if [[ "$IN_REPO" -eq 0 ]]; then
-  echo "[helionet] no existing docker-helionet checkout detected in: $(pwd)"
-
-  if [[ -d "$REPO_DIR" ]]; then
-    echo "[helionet] found existing '$REPO_DIR' directory, using that"
-  else
-    echo "[helionet] cloning $REPO_URL into '$REPO_DIR'..."
-    git clone "$REPO_URL" "$REPO_DIR"
-  fi
-
-  cd "$REPO_DIR"
-  echo "[helionet] now in repo directory: $(pwd)"
+log_msg "Deps" 1 3 "INFO" "Checking for curl..."
+if ! command -v curl >/dev/null 2>&1; then
+  echo "  curl not found. Installing via apt..."
+  apt update && apt install -y curl
+  echo "  curl installed."
+  log_msg "Deps" 1 3 "OK" "curl installed."
 else
-  echo "[helionet] repo detected in $(pwd)"
+  log_msg "Deps" 1 3 "OK" "curl already present."
+fi
+
+log_msg "Deps" 2 3 "INFO" "Checking for Docker..."
+if ! command -v docker >/dev/null 2>&1; then
+  echo "  Docker not found. Installing via get.docker.com..."
+  sh <(curl -fsSL https://get.docker.com)
+  echo "  Docker installed."
+  log_msg "Deps" 2 3 "OK" "Docker installed."
+else
+  log_msg "Deps" 2 3 "OK" "Docker already present."
+fi
+
+log_msg "Deps" 3 3 "INFO" "Checking for git..."
+if ! command -v git >/dev/null 2>&1; then
+  echo "  git not found. Installing via apt..."
+  apt update && apt install -y git
+  echo "  git installed."
+  log_msg "Deps" 3 3 "OK" "git installed."
+else
+  log_msg "Deps" 3 3 "OK" "git already present."
 fi
 
 ########################################
-# 2. Ensure docker-helionet .env exists
-#    and generate secrets on first run
+# Repo: ensure docker-helionet checkout
 ########################################
-if [[ ! -f .env ]]; then
-  if [[ ! -f .env.example ]]; then
-    echo "[helionet] ERROR: .env.example missing — cannot auto-create .env"
+log_msg "Repo" 1 2 "INFO" "Ensuring HelioNET docker repository exists..."
+
+if [[ -d "$INSTALL_DIR/.git" && ( -f "$INSTALL_DIR/docker-compose.yml" || -f "$INSTALL_DIR/docker-compose.yaml" ) ]]; then
+  echo "  Existing docker-helionet repo detected at $INSTALL_DIR"
+else
+  if [[ -d "$INSTALL_DIR" && -n "$(ls -A "$INSTALL_DIR" 2>/dev/null || true)" && ! -d "$INSTALL_DIR/.git" ]]; then
+    log_msg "Repo" 1 2 "ERROR" "$INSTALL_DIR is not empty and not a git repo. Refusing to overwrite."
+    echo "  Please choose an empty directory or an existing docker-helionet checkout."
     exit 1
   fi
 
-  echo "[helionet] creating .env from .env.example..."
+  echo "  Cloning $REPO_URL into $INSTALL_DIR..."
+  rm -rf "$INSTALL_DIR"
+  mkdir -p "$(dirname "$INSTALL_DIR")"
+  git clone "$REPO_URL" "$INSTALL_DIR"
+  echo "  Clone complete."
+fi
+
+cd "$INSTALL_DIR"
+echo "  Now in repo directory: $(pwd)"
+log_msg "Repo" 1 2 "OK" "Repository ready in $INSTALL_DIR."
+
+########################################
+# Env: ensure .env exists & secrets
+########################################
+log_msg "Env" 1 2 "INFO" "Ensuring .env configuration is present..."
+
+if [[ ! -f .env ]]; then
+  if [[ ! -f .env.example ]]; then
+    log_msg "Env" 1 2 "ERROR" ".env.example missing — cannot auto-create .env."
+    exit 1
+  fi
+
+  echo "  Creating .env from .env.example..."
   cp .env.example .env
 
-  #
-  # 2a. Generate DB password
-  #
   DB_PASS="$(openssl rand -base64 18 | tr -d '=+/')"
   if grep -q "CHANGEME_DB_PASSWORD" .env; then
     sed -i "s/CHANGEME_DB_PASSWORD/${DB_PASS}/" .env
   else
-    # Fallback: if no placeholder, force-set DB_PASSWORD line
     if grep -q "^DB_PASSWORD=" .env; then
       sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=${DB_PASS}/" .env
     else
       echo "DB_PASSWORD=${DB_PASS}" >> .env
     fi
   fi
-  echo "[helionet] generated DB_PASSWORD"
+  echo "  Generated DB_PASSWORD."
 
-  #
-  # 2b. Generate secure APP_KEY
-  #
   APP_KEY="base64:$(openssl rand -base64 32)"
   esc_key=$(printf '%s\n' "$APP_KEY" | sed 's/[\/&]/\\&/g')
 
@@ -250,39 +228,102 @@ if [[ ! -f .env ]]; then
   else
     echo "APP_KEY=${APP_KEY}" >> .env
   fi
-  echo "[helionet] generated APP_KEY"
+  echo "  Generated APP_KEY."
 
+  log_msg "Env" 2 2 "OK" ".env created and secrets generated."
 else
-  echo "[helionet] existing .env found — skipping env generation"
+  log_msg "Env" 2 2 "OK" "Existing .env found — skipping env generation."
 fi
 
 ########################################
-# 3. Start / restart the stack
+# Docker: setup compose command
 ########################################
-echo "[helionet] stopping any existing stack (if present)..."
+log_msg "Docker" 1 3 "INFO" "Detecting Docker Compose command..."
+
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD="docker-compose"
+else
+  log_msg "Docker" 1 3 "ERROR" "Neither 'docker compose' nor 'docker-compose' is available."
+  exit 1
+fi
+log_msg "Docker" 1 3 "OK" "Using '$COMPOSE_CMD'."
+
+########################################
+# Helper: run a command in the web container
+########################################
+run_in_web() {
+  # usage: run_in_web "command here"
+  $COMPOSE_CMD exec -T web sh -lc "$*"
+}
+
+########################################
+# Docker: restart stack & migrate
+########################################
+log_msg "Docker" 2 3 "INFO" "Stopping any existing stack and pulling images..."
 $COMPOSE_CMD down --remove-orphans || true
-
-echo "[helionet] pulling images..."
 $COMPOSE_CMD pull
+log_msg "Docker" 2 3 "OK" "Images pulled and old stack (if any) stopped."
 
-echo "[helionet] starting core containers (web, db, redis)..."
+log_msg "Docker" 3 3 "INFO" "Starting core containers (web, db, redis)..."
 $COMPOSE_CMD up -d web db redis
+log_msg "Docker" 3 3 "OK" "Core containers started."
 
-########################################
-# 4. Run migrations inside the web container
-########################################
-echo "[helionet] running migrations in web container..."
-# Clear cached config in case APP_KEY / DB_ vars changed
+log_msg "Workers" 1 1 "INFO" "Running Laravel config clear and migrations..."
 run_in_web "cd /var/www/html && php artisan config:clear || true"
-# In production, migrate MUST use --force (non-interactive)
 run_in_web "cd /var/www/html && php artisan migrate --force || true"
+log_msg "Workers" 1 1 "OK" "Migrations completed."
 
 ########################################
-# 5. Ensure worker and scheduler containers are up
+# Workers: worker & scheduler containers
 ########################################
-echo "[helionet] starting worker and scheduler containers..."
+log_msg "Stack" 1 2 "INFO" "Starting worker and scheduler containers..."
 $COMPOSE_CMD up -d worker
 $COMPOSE_CMD up -d scheduler
+log_msg "Stack" 1 2 "OK" "Worker and scheduler containers started."
 
-echo "[helionet] bootstrap complete"
-echo "[helionet] Stack is up. Try opening: http://localhost:8080"
+########################################
+# Cron: host cron job for host_worker.sh
+########################################
+LOG_DIR="$INSTALL_DIR/log"
+LOG_FILE="$LOG_DIR/host_worker.log"
+HOST_WORKER_SCRIPT="$INSTALL_DIR/host_worker.sh"
+CRON_JOB="* * * * * $HOST_WORKER_SCRIPT $LOG_FILE >> $LOG_FILE 2>&1"
+
+log_msg "Cron" 1 3 "INFO" "Ensuring log directory exists at $LOG_DIR..."
+if [[ ! -d "$LOG_DIR" ]]; then
+  mkdir -p "$LOG_DIR"
+  echo "  Created log directory: $LOG_DIR"
+fi
+log_msg "Cron" 1 3 "OK" "Log directory ready."
+
+log_msg "Cron" 2 3 "INFO" "Ensuring host_worker log file exists..."
+if [[ ! -f "$LOG_FILE" ]]; then
+  touch "$LOG_FILE"
+  echo "  Created log file: $LOG_FILE"
+fi
+log_msg "Cron" 2 3 "OK" "Log file ready."
+
+log_msg "Cron" 3 3 "INFO" "Ensuring host_worker cron job exists..."
+existing_cron=$(crontab -l 2>/dev/null || true)
+if echo "$existing_cron" | grep -Fq "$CRON_JOB"; then
+  echo "  Cron job already present. No changes made."
+  log_msg "Cron" 3 3 "OK" "Cron job already configured."
+else
+  echo "  Adding cron job for host_worker.sh..."
+  (echo "$existing_cron"; echo "$CRON_JOB") | crontab -
+  echo "  Cron job added."
+  log_msg "Cron" 3 3 "OK" "Cron job configured."
+fi
+
+if [[ ! -x "$HOST_WORKER_SCRIPT" ]]; then
+  log_msg "Cron" 3 3 "WARN" "$HOST_WORKER_SCRIPT is not executable or does not exist. Cron job may fail until this is resolved."
+fi
+
+########################################
+# Done
+########################################
+log_msg "Done" 1 1 "OK" "Bootstrap complete. HelioNET stack should be up."
+echo "Open: http://localhost:8080"
+echo "Install directory: $INSTALL_DIR"

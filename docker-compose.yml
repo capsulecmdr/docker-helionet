@@ -154,8 +154,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: [
-        "CMD-SHELL","mysqladmin ping -h 127.0.0.1 -u${DB_USERNAME} -p${DB_PASSWORD} --silent || exit 1"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 10

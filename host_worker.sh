@@ -12,7 +12,7 @@ log_host_worker() {
   local env="${APP_ENV:-local}"
 
   # Laravel-style log line
-  printf '[%s] %s.%s: %s {} []\n' "$ts" "$env" "$level" "$msg" >> "$HOST_WORKER_LOG"
+  printf '[%s] %s.%s: %s {} []\n' "$ts" "$env" "$level" "$msg" >> "$LOG_FILE"
 }
 
 log_host_worker INFO "host-worker starting..."

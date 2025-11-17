@@ -42,7 +42,13 @@ fi
 if [[ ! -f "$QUEUE_FILE" ]]; then
   log_host_worker WARNING "Queue file missing: ${QUEUE_FILE}"
   touch "$QUEUE_FILE"
-  echo "{\"host\":\"$(hostname -f)\",\"ip\":\"$(curl -s ifconfig.me)\",\"cwd\":\"$(pwd)\"}" > "$QUEUE_FILE"
+  
+  printf 'echo "%s | %s | %s"\n' \
+  "$(hostname -f 2>/dev/null || hostname)" \
+  "$(curl -s ifconfig.me || echo unknown_ip)" \
+  "$(pwd)" \
+  > /var/lib/docker/volumes/docker-helionet_app_storage/_data/host_worker.queue
+
   log_host_worker INFO "Created new queue file: ${QUEUE_FILE}"
 fi
 

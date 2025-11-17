@@ -154,7 +154,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$MYSQL_USER -p$MYSQL_PASSWORD > /dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$DB_USERNAME -p$DB_PASSWORD > /dev/null 2>&1 || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 10

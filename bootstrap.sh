@@ -134,7 +134,8 @@ if [[ -n "${REPLY:-}" && ! "$REPLY" =~ ^[Yy]$ ]]; then
 fi
 log_msg "Init" 4 5 "OK" "User confirmed installation. Proceeding..."
 
-DEFAULT_DOMAIN="http://localhost:8080"
+CURRENT_FQDN = $(hostname -f)
+DEFAULT_DOMAIN="http://${CURRENT_FQDN}:8080"
 
 log_msg "Init" 5 5 "INFO" "Prompting for HelioNET domain..."
 echo "What domain or URL will you use to access HelioNET?"

@@ -191,6 +191,14 @@ else
 fi
 
 cd "$INSTALL_DIR"
+
+#set execute permission for host_worker.sh
+chmod +x ./host_worker.sh
+
+#remove unnecessary files
+rm -f build_and_push.sh
+rm -f bootstrap.sh
+
 echo "  Now in repo directory: $(pwd)"
 log_msg "Repo" 1 2 "OK" "Repository ready in $INSTALL_DIR."
 

@@ -11,7 +11,7 @@ services:
       - "8080:80"          # http://localhost:8080 → app
     volumes:
     #  - ../helionet:/var/www/html
-       - "app_storage:/var/www/html/storage"
+      - "app_storage:/var/www/html/storage"
     networks:
       - internal
       - public
@@ -60,7 +60,7 @@ services:
         condition: service_healthy
     volumes:
     #  - ../helionet:/var/www/html
-       - "app_storage:/var/www/html/storage"
+      - "app_storage:/var/www/html/storage"
     networks:
       - internal
     # Run Horizon instead of supervisord
@@ -104,8 +104,8 @@ services:
       redis:
         condition: service_healthy
     volumes:
-    #  - ../helionet:/var/www/html
-       - "app_storage:/var/www/html/storage"
+    # - ../helionet:/var/www/html
+      - "app_storage:/var/www/html/storage"
     networks:
       - internal
     # Continuous scheduler loop

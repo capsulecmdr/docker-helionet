@@ -339,7 +339,7 @@ log_msg "Stack" 1 2 "OK" "Worker and scheduler containers started."
 ########################################
 # Cron: host cron job for host_worker.sh
 ########################################
-LOG_DIR="$INSTALL_DIR/log"
+LOG_DIR="/var/www/html/storage/logs"
 LOG_FILE="$LOG_DIR/host_worker.log"
 HOST_WORKER_SCRIPT="$INSTALL_DIR/host_worker.sh"
 CRON_JOB="* * * * * $HOST_WORKER_SCRIPT $LOG_FILE >> $LOG_FILE 2>&1"

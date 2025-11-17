@@ -42,13 +42,7 @@ fi
 if [[ ! -f "$QUEUE_FILE" ]]; then
   log_host_worker WARNING "Queue file missing: ${QUEUE_FILE}"
   touch "$QUEUE_FILE"
-  {
-    printf "%s | %s | %s\n" \
-      "$(hostname -f 2>/dev/null || hostname)" \
-      "$(curl -s ifconfig.me || echo unknown_ip)" \
-      "$(pwd)"
-  } > "$QUEUE_FILE"
-  
+  echo "{\"host\":\"$(hostname -f)\",\"ip\":\"$(curl -s ifconfig.me)\",\"cwd\":\"$(pwd)\"}" > "$QUEUE_FILE"
   log_host_worker INFO "Created new queue file: ${QUEUE_FILE}"
 fi
 

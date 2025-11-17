@@ -3,13 +3,18 @@ set -euo pipefail
 
 LOG_FILE="${1:-/tmp/host_worker.log}"
 
-echo "[$(date --iso-8601=seconds)] host_worker.sh starting..." >> "$LOG_FILE"
+log_host_worker() {
+  local level="$1"; shift
+  local msg="$*"
 
+  local ts
+  ts=$(date '+%Y-%m-%d %H:%M:%S')
+  local env="${APP_ENV:-local}"
 
-    # === Your actual work goes here ===
-    echo "[$(date --iso-8601=seconds)] Running host worker task..." >> "$LOG_FILE"
-    
-    # Example: call a PHP script, Docker command, etc.
-    # php /opt/seat-helionet/artisan some:command >> "$LOG_FILE" 2>&1
+  # Laravel-style log line
+  printf '[%s] %s.%s: %s {} []\n' "$ts" "$env" "$level" "$msg" >> "$HOST_WORKER_LOG"
+}
 
-    #sleep 30
+log_host_worker INFO "host-worker starting..."
+
+log_host_worker INFO "host-worker finished"

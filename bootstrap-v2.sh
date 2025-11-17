@@ -118,7 +118,7 @@ if echo "$existing_cron" | grep -Fq "$CRON_JOB"; then
 else
     echo -e "\n  Adding cron job..."
     # Append the new job and install it
-    #(echo "$existing_cron"; echo "$CRON_JOB") | crontab -
+    (echo "$existing_cron"; echo "$CRON_JOB") | crontab -
     echo -e "\n  Cron job added successfully."
 fi
 

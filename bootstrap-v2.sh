@@ -275,7 +275,7 @@ if [[ ! -f .env ]]; then
   log_msg "Env" 2 2 "OK" ".env created and secrets generated."
 else
   log_msg "Env" 2 2 "OK" "Existing .env found — skipping env generation."
-  
+
   # Always ensure APP_URL is correct
   esc_domain=$(printf '%s\n' "$HELIONET_DOMAIN" | sed 's/[\/&]/\\&/g')
 
@@ -378,5 +378,5 @@ fi
 # Done
 ########################################
 log_msg "Done" 1 1 "OK" "Bootstrap complete. HelioNET stack should be up."
-echo "Open: http://localhost:8080"
+echo "Open: ${HELIONET_DOMAIN}"
 echo "Install directory: $INSTALL_DIR"

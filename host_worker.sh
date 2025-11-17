@@ -42,6 +42,13 @@ fi
 if [[ ! -f "$QUEUE_FILE" ]]; then
   log_host_worker WARNING "Queue file missing: ${QUEUE_FILE}"
   touch "$QUEUE_FILE"
+  {
+    printf "%s | %s | %s\n" \
+      "$(hostname -f 2>/dev/null || hostname)" \
+      "$(curl -s ifconfig.me || echo unknown_ip)" \
+      "$(pwd)"
+  } > "$QUEUE_FILE"
+  
   log_host_worker INFO "Created new queue file: ${QUEUE_FILE}"
 fi
 
@@ -49,7 +56,7 @@ fi
 # Process queue file line-by-line
 # -----------------------------------
 if [[ ! -s "$QUEUE_FILE" ]]; then
-  #log_host_worker INFO "Queue file is empty; nothing to process."
+  : #log_host_worker INFO "Queue file is empty; nothing to process."
 else
   #log_host_worker INFO "Processing commands from queue file: ${QUEUE_FILE}"
 

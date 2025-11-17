@@ -34,13 +34,13 @@ log_host_worker INFO "host-worker starting..."
 # Ensure queue directory & file exist
 # -----------------------------------
 if [[ ! -d "$QUEUE_DIR" ]]; then
-  log_host_worker WARN "Queue directory missing: ${QUEUE_DIR}"
+  log_host_worker WARNING "Queue directory missing: ${QUEUE_DIR}"
   mkdir -p "$QUEUE_DIR"
   log_host_worker INFO "Created queue directory: ${QUEUE_DIR}"
 fi
 
 if [[ ! -f "$QUEUE_FILE" ]]; then
-  log_host_worker WARN "Queue file missing: ${QUEUE_FILE}"
+  log_host_worker WARNING "Queue file missing: ${QUEUE_FILE}"
   touch "$QUEUE_FILE"
   log_host_worker INFO "Created new queue file: ${QUEUE_FILE}"
 fi

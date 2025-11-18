@@ -343,7 +343,7 @@ log_msg "Stack" 1 2 "OK" "Worker and scheduler containers started."
 LOG_DIR="/var/lib/docker/volumes/docker-helionet_app_storage/_data/logs" # TODO: Need to put a check in place to find the correct volume name dynamically
 LOG_FILE="$LOG_DIR/host_worker.log"
 HOST_WORKER_SCRIPT="$INSTALL_DIR/host_worker.sh"
-CRON_JOB="* * * * * $HOST_WORKER_SCRIPT $LOG_FILE >> $LOG_FILE 2>&1"
+CRON_JOB="* * * * * $HOST_WORKER_SCRIPT $LOG_FILE $INSTALL_DIR >> $LOG_FILE 2>&1"
 
 log_msg "Cron" 1 3 "INFO" "Ensuring log directory exists at $LOG_DIR..."
 if [[ ! -d "$LOG_DIR" ]]; then

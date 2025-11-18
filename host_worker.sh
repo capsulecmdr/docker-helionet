@@ -5,6 +5,7 @@ set -euo pipefail
 # Config
 # -----------------------------------
 LOG_FILE="${1:-/tmp/host_worker.log}"
+WORKING_DIR="${2:-/tmp}"
 
 # Fixed queue location (your Docker volume path)
 QUEUE_DIR="/var/lib/docker/volumes/docker-helionet_app_storage/_data"
@@ -94,7 +95,7 @@ if [[ -s "$QUEUE_FILE" ]]; then
     #log_host_worker INFO "Executing queued command: ${line}"
 
     set +e
-    output=$(bash -c "$line" 2>&1)
+    output=$(bash -c "cd \"$WORKING_DIR\" && $line" 2>&1)
     status=$?
     set -e
 

@@ -99,6 +99,39 @@ foreach ($packages as $index => &$pkg) {
 
             $pkg['status'] = 'Installed';
             logMsg("INFO", "[{$label}] health-check OK. Marked Installed.");
+
+            echo "[helionet] Running Laravel post-install maintenance...";
+
+            // -------------------------------------------
+            // SAFE post-install Artisan commands
+            // -------------------------------------------
+
+            logMsg("INFO", "[{$label}] Running post-install artisan tasks...");
+
+            runArtisan($projectRoot, 'migrate --force');
+            runArtisan($projectRoot, 'vendor:publish --all --force');
+
+            runArtisan($projectRoot, 'config:clear');
+            runArtisan($projectRoot, 'cache:clear');
+            runArtisan($projectRoot, 'view:clear');
+            runArtisan($projectRoot, 'route:clear');
+
+            runArtisan($projectRoot, 'config:cache');
+            runArtisan($projectRoot, 'route:cache');
+            runArtisan($projectRoot, 'view:cache');
+
+// php artisan migrate --force || true
+// php artisan vendor:publish --all --force || true
+
+// php artisan config:clear
+// php artisan cache:clear
+// php artisan view:clear
+// php artisan route:clear
+
+// php artisan config:cache
+// php artisan route:cache
+// php artisan view:cache
+
             break;
     }
 }
@@ -108,6 +141,22 @@ unset($pkg); // break reference
 $directory->save($packages);
 logMsg("INFO", "HelioNET package bootstrap finished.");
 exit(0);
+
+/**
+ * Runs an artisan command as a separate process.
+ */
+function runArtisan(string $projectRoot, string $command): void
+{
+    $cmd = "cd {$projectRoot} && php artisan {$command} 2>&1";
+    $output = shell_exec($cmd);
+
+    if ($output === null) {
+        logMsg("ERROR", "Artisan command failed to run: {$command}");
+        return;
+    }
+
+    logMsg("INFO", "Artisan output [{$command}]: " . trim($output));
+}
 
 /**
  * Run `composer require` for a given package.

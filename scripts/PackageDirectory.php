@@ -112,25 +112,72 @@ class PackageDirectory
         }
     }
 
+    private const DEFAULT_PACKAGES = [
+        [
+            "type"    => "Core",
+            "status"  => "New",
+            "repo"    => "capsulecmdr/helionet-web",
+            "version" => "@dev",
+            "comment" => ""
+        ],
+        // [
+        //     "type"    => "Core",
+        //     "status"  => "New",
+        //     "repo"    => "capsulecmdr/helionet-api",
+        //     "version" => "@dev",
+        //     "comment" => ""
+        // ],
+        // [
+        //     "type"    => "Base",
+        //     "status"  => "New",
+        //     "repo"    => "capsulecmdr/helionet-ui",
+        //     "version" => "^1.0",
+        //     "comment" => "Default UI components"
+        // ],
+        // [
+        //     "type"    => "Community",
+        //     "status"  => "New",
+        //     "repo"    => "somevendor/helionet-addon",
+        //     "version" => "^2.0",
+        //     "comment" => "Example addon"
+        // ],
+        // [
+        //     "type"    => "Custom",
+        //     "status"  => "Disabled",
+        //     "repo"    => "capsulecmdr/custom-alpha",
+        //     "version" => "dev-master",
+        //     "comment" => "Optional custom extension"
+        // ]
+    ];
+
     private function ensureFileExists(): void
     {
         if (!file_exists($this->path)) {
             $dir = dirname($this->path);
+
             if (!is_dir($dir)) {
                 if (!mkdir($dir, 0775, true) && !is_dir($dir)) {
                     throw new RuntimeException("Unable to create directory for package file: {$dir}");
                 }
             }
 
-            // Create an empty file with header
             $fh = fopen($this->path, 'w');
             if (!$fh) {
                 throw new RuntimeException("Unable to create package directory file: {$this->path}");
             }
+
+            // Write header
             fwrite($fh, "# HelioNET Dynamic Package Directory\n");
             fwrite($fh, "# JSONL format: one JSON object per line\n");
-            fwrite($fh, "# Fields: type, status, repo, version, comment\n");
+            fwrite($fh, "# Fields: type, status, repo, version, comment\n\n");
+
+            // Write default packages
+            foreach (self::DEFAULT_PACKAGES as $package) {
+                fwrite($fh, json_encode($package, JSON_UNESCAPED_SLASHES) . PHP_EOL);
+            }
+
             fclose($fh);
         }
     }
+
 }

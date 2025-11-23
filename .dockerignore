@@ -1,0 +1,4 @@
+# Don’t ever include version control
+.git
+.gitignore
+.gitattributes

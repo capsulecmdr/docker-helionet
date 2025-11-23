@@ -11,6 +11,10 @@ rm -rf helionet
 echo "[helionet] Cloning ${REPO_URL}#${BRANCH}"
 git clone --depth=1 --branch "${BRANCH}" "${REPO_URL}" helionet
 
+echo "[helionet] Removing Git artifacts from cloned repo"
+# Remove main .git directory
+rm -rf helionet/.git
+
 echo "[helionet] Logging into GHCR"
 echo "${GHCR_TOKEN:?GHCR_TOKEN env var is required}" | docker login ghcr.io -u capsulecmdr --password-stdin
 

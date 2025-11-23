@@ -1,23 +1,36 @@
 #!/usr/bin/env bash
 set -e
 
-echo "[HelioNET | Packages] Running dynamic package bootstrap..."
+ROLE="${HELIONET_ROLE:-web}"  # default to web if not set
+LOCK_FILE="/var/www/html/storage/packages/bootstrap.lock"
 
-# Ensure storage directory exists
-mkdir -p /var/www/html/storage/packages
+echo "[HelioNET | Entry] Container role: $ROLE"
 
-# Run the file-only dynamic loader
-php /var/www/html/scripts/bootstrap-packages.php \
+run_bootstrap() {
+    mkdir -p /var/www/html/storage/packages
+
+    if [ -f "$LOCK_FILE" ]; then
+        echo "[HelioNET | Packages] Lock file found, skipping bootstrap."
+        return
+    fi
+
+    echo "[HelioNET | Packages] Running dynamic package bootstrap..."
+
+    php /var/www/html/scripts/bootstrap-packages.php \
     /var/www/html/storage/packages/packages.jsonl \
     /var/www/html
 
-echo "[HelioNET | Packages] Bootstrap complete."
+    touch "$LOCK_FILE"
+    echo "[HelioNET | Packages] Bootstrap complete; lock file created."
+}
 
-# Optional: do runtime artisan stuff here if you want
-# (Only if your codebase is stable enough that artisan can boot)
-# php artisan migrate --force || true
-# php artisan config:cache || true
-# php artisan route:cache || true
+# Only the web role should ever run the bootstrap
+if [ "$ROLE" = "web" ]; then
+    echo "[HelioNET | Entry] Web role detected; running package bootstrap..."
+    run_bootstrap
+else
+    echo "[HelioNET | Entry] Non-web role ($ROLE); skipping package bootstrap."
+fi
 
-echo "[HelioNET | Runtime] Starting supervisord..."
+echo "[HelioNET | Runtime] Starting: $*"
 exec "$@"

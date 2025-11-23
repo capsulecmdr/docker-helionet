@@ -20,8 +20,8 @@ run_bootstrap() {
     /var/www/html/storage/packages/packages.jsonl \
     /var/www/html
 
-    touch "$LOCK_FILE"
-    echo "[HelioNET | Packages] Bootstrap complete; lock file created."
+    # touch "$LOCK_FILE"
+    # echo "[HelioNET | Packages] Bootstrap complete; lock file created."
 }
 
 # Only the web role should ever run the bootstrap

@@ -76,6 +76,12 @@ COPY helionet/ ./
 # If you're using a bind mount, these commands are effectively no-ops.
 
 # -----------------------------
+# HelioNET dynamic package scripts
+# -----------------------------
+COPY scripts/PackageDirectory.php scripts/bootstrap-packages.php /var/www/html/scripts/
+RUN chmod +x /var/www/html/scripts/bootstrap-packages.php
+
+# -----------------------------
 # Install dependencies & optimize
 # -----------------------------
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress || true
@@ -84,9 +90,17 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progre
 RUN php artisan route:cache || true \
  && php artisan view:cache || true
 
+
+ # -----------------------------
+# Entrypoint
+# -----------------------------
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # -----------------------------
 # Runtime
 # -----------------------------
 EXPOSE 80
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]

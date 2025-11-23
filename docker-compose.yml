@@ -16,6 +16,7 @@ services:
       - internal
       - public
     environment:
+      HELIONET_ROLE: web
       # Laravel app
       APP_NAME: ${APP_NAME:-HelioNET}
       APP_ENV: ${APP_ENV:-production}
@@ -66,6 +67,7 @@ services:
     # Run Horizon instead of supervisord
     command: php artisan horizon
     environment:
+      HELIONET_ROLE: worker
       APP_NAME: ${APP_NAME:-HelioNET}
       APP_ENV: ${APP_ENV:-production}
       APP_DEBUG: ${APP_DEBUG:-false}
@@ -111,6 +113,7 @@ services:
     # Continuous scheduler loop
     command: php artisan schedule:work
     environment:
+      HELIONET_ROLE: scheduler
       APP_NAME: ${APP_NAME:-HelioNET}
       APP_ENV: ${APP_ENV:-production}
       APP_DEBUG: ${APP_DEBUG:-false}

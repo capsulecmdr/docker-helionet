@@ -70,7 +70,6 @@ PHP
 
 ensure_logviewer_apache_logs() {
     local CONFIG_FILE="/var/www/html/config/log-viewer.php"
-    local PATTERN="/var/log/apache2/helionet-*.log"
 
     # If the config hasn't been published yet, publish it once
     if [ ! -f "$CONFIG_FILE" ]; then
@@ -81,44 +80,48 @@ ensure_logviewer_apache_logs() {
     fi
 
     if [ ! -f "$CONFIG_FILE" ]; then
-        echo "[HelioNET | LogViewer] Config still missing; skipping Apache pattern."
+        echo "[HelioNET | LogViewer] Config still missing; skipping Apache/middleware wiring."
         return
     fi
 
-    echo "[HelioNET | LogViewer] Ensuring Apache log pattern is registered..."
+    echo "[HelioNET | LogViewer] Ensuring Apache pattern and admin middleware are registered..."
 
-    # Run a small inline PHP script to update config/log-viewer.php idempotently
     php <<'PHP'
 <?php
-$file    = '/var/www/html/config/log-viewer.php';
-$pattern = "/var/log/apache2/helionet-*.log";
+$file = '/var/www/html/config/log-viewer.php';
+$pattern = '/var/log/apache2/helionet-*.log';
 
 if (!file_exists($file)) {
     exit(0);
 }
 
-$code = file_get_contents($file);
+$config = include $file;
 
-// If the pattern is already present, do nothing (idempotent)
-if (strpos($code, $pattern) !== false) {
-    exit(0);
+// --- Ensure include_files entry exists ---
+if (!isset($config['include_files']) || !is_array($config['include_files'])) {
+    $config['include_files'] = [];
 }
 
-// Find the 'include_files' => [ ... ] section
-$needle = "'include_files' => [";
-$pos = strpos($code, $needle);
-
-if ($pos === false) {
-    // No include_files section found; bail out quietly
-    exit(0);
+if (!array_key_exists($pattern, $config['include_files'])) {
+    $config['include_files'][$pattern] = 'Apache (HelioNET)';
 }
 
-// Build new include_files opening with our pattern inserted
-$insert = $needle . "\n        '$pattern' => 'Apache (HelioNET)',";
+// --- Ensure middleware includes web, auth, admin ---
+$middleware = $config['middleware'] ?? ['web'];
 
-$code = substr_replace($code, $insert, $pos, strlen($needle));
+$required = ['web', 'auth', 'admin'];
 
-file_put_contents($file, $code);
+foreach ($required as $mw) {
+    if (!in_array($mw, $middleware, true)) {
+        $middleware[] = $mw;
+    }
+}
+
+$config['middleware'] = $middleware;
+
+// Write back to config file
+$export = "<?php\n\nreturn " . var_export($config, true) . ";\n";
+file_put_contents($file, $export);
 PHP
 }
 

@@ -45,8 +45,7 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # -----------------------------
 # User & group (for Apache workers / file ownership)
 # -----------------------------
-RUN groupadd -r -g 1000 helionet \
-  && useradd --no-log-init -r -g helionet -u 1000 helionet
+RUN groupadd -r -g 200 helionet && useradd --no-log-init -r -g helionet -u 200 helionet
 
 # -----------------------------
 # Apache config

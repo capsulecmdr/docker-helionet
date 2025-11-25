@@ -108,6 +108,10 @@ RUN chmod +x /entrypoint.sh
 # Apache parent runs as root (inside the container), workers drop to helionet.
 
 USER helionet
+
+#fix tinker home issue
+ENV XDG_CONFIG_HOME=/tmp
+
 EXPOSE 8080
 
 ENTRYPOINT ["/entrypoint.sh"]

@@ -5,10 +5,14 @@ IMAGE="ghcr.io/capsulecmdr/helionet:latest"
 REPO_URL="https://github.com/capsulecmdr/helionet.git"
 BRANCH="main"
 
+
+
+
 if [[ -z "${GHCR_TOKEN:-}" ]]; then
     echo ""
     echo "[helionet] No GHCR_TOKEN found."
     echo "[helionet] Please enter your GHCR personal access token:"
+    echo "           See: https://github.com/settings/tokens"
     read -rsp "GHCR_TOKEN: " GHCR_TOKEN_INPUT
     echo ""
 

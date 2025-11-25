@@ -24,6 +24,50 @@ run_bootstrap() {
     # echo "[HelioNET | Packages] Bootstrap complete; lock file created."
 }
 
+ensure_horizon_admin_middleware() {
+    local CONFIG_FILE="/var/www/html/config/horizon.php"
+
+    # If the config hasn't been published yet, publish it once
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "[HelioNET | Horizon] Config not found; publishing..."
+        php artisan vendor:publish \
+            --provider="Laravel\\Horizon\\HorizonServiceProvider" \
+            --tag=config --force || true
+    fi
+
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "[HelioNET | Horizon] Config still missing; skipping middleware wiring."
+        return
+    fi
+
+    echo "[HelioNET | Horizon] Ensuring 'admin' middleware is registered..."
+
+    php <<'PHP'
+<?php
+$file = '/var/www/html/config/horizon.php';
+
+if (!file_exists($file)) {
+    exit(0);
+}
+
+$config = include $file;
+
+// Default to existing middleware or ['web'] if missing
+$middleware = $config['middleware'] ?? ['web'];
+
+// If 'admin' is already present, do nothing (idempotent)
+if (in_array('admin', $middleware, true)) {
+    exit(0);
+}
+
+$middleware[] = 'admin';
+$config['middleware'] = $middleware;
+
+$export = "<?php\n\nreturn " . var_export($config, true) . ";\n";
+file_put_contents($file, $export);
+PHP
+}
+
 ensure_logviewer_apache_logs() {
     local CONFIG_FILE="/var/www/html/config/log-viewer.php"
     local PATTERN="/var/log/apache2/helionet-*.log"
@@ -83,6 +127,7 @@ if [ "$ROLE" = "web" ]; then
     echo "[HelioNET | Entry] Web role detected; running package bootstrap..."
     run_bootstrap
     ensure_logviewer_apache_logs
+    ensure_horizon_admin_middleware
 else
     echo "[HelioNET | Entry] Non-web role ($ROLE); skipping bootstrap/log-viewer config."
 fi

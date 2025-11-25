@@ -26,6 +26,7 @@ run_bootstrap() {
 
 ensure_logviewer_apache_logs() {
     local CONFIG_FILE="/var/www/html/config/log-viewer.php"
+    local PATTERN="/var/log/apache2/helionet-*.log"
 
     # If the config hasn't been published yet, publish it once
     if [ ! -f "$CONFIG_FILE" ]; then
@@ -35,41 +36,45 @@ ensure_logviewer_apache_logs() {
             --tag=config --force || true
     fi
 
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "[HelioNET | LogViewer] Config still missing; skipping Apache pattern."
+        return
+    fi
+
     echo "[HelioNET | LogViewer] Ensuring Apache log pattern is registered..."
 
     # Run a small inline PHP script to update config/log-viewer.php idempotently
     php <<'PHP'
 <?php
-$file = '/var/www/html/config/log-viewer.php';
+$file    = '/var/www/html/config/log-viewer.php';
+$pattern = "/var/log/apache2/helionet-*.log";
+
 if (!file_exists($file)) {
-    // Nothing to do
     exit(0);
 }
 
-$cfg = include $file;
-$pattern = '/var/log/apache2/helionet-*.log';
+$code = file_get_contents($file);
 
-if (!isset($cfg['include_files']) || !is_array($cfg['include_files'])) {
-    $cfg['include_files'] = [];
+// If the pattern is already present, do nothing (idempotent)
+if (strpos($code, $pattern) !== false) {
+    exit(0);
 }
 
-$found = false;
-foreach ($cfg['include_files'] as $key => $value) {
-    // handle both numeric array entries and "path => label" entries
-    if ($key === $pattern || $value === $pattern) {
-        $found = true;
-        break;
-    }
+// Find the 'include_files' => [ ... ] section
+$needle = "'include_files' => [";
+$pos = strpos($code, $needle);
+
+if ($pos === false) {
+    // No include_files section found; bail out quietly
+    exit(0);
 }
 
-if (!$found) {
-    // Add with a nice label for the UI
-    $cfg['include_files'][$pattern] = 'Apache (HelioNET)';
-    file_put_contents(
-        $file,
-        "<?php\n\nreturn " . var_export($cfg, true) . ";\n"
-    );
-}
+// Build new include_files opening with our pattern inserted
+$insert = $needle . "\n        '$pattern' => 'Apache (HelioNET)',";
+
+$code = substr_replace($code, $insert, $pos, strlen($needle));
+
+file_put_contents($file, $code);
 PHP
 }
 

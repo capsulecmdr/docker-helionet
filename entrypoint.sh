@@ -70,6 +70,7 @@ PHP
 
 ensure_logviewer_apache_logs() {
     local CONFIG_FILE="/var/www/html/config/log-viewer.php"
+    local PATTERN="/var/log/apache2/helionet-*.log"
 
     # If the config hasn't been published yet, publish it once
     if [ ! -f "$CONFIG_FILE" ]; then
@@ -88,42 +89,47 @@ ensure_logviewer_apache_logs() {
 
     php <<'PHP'
 <?php
-$file = '/var/www/html/config/log-viewer.php';
-$pattern = '/var/log/apache2/helionet-*.log';
+$file    = '/var/www/html/config/log-viewer.php';
+$pattern = "/var/log/apache2/helionet-*.log";
 
 if (!file_exists($file)) {
     exit(0);
 }
 
-$config = include $file;
-
-// --- Ensure include_files entry exists ---
-if (!isset($config['include_files']) || !is_array($config['include_files'])) {
-    $config['include_files'] = [];
+$code = file_get_contents($file);
+if ($code === false) {
+    exit(0);
 }
 
-if (!array_key_exists($pattern, $config['include_files'])) {
-    $config['include_files'][$pattern] = 'Apache (HelioNET)';
-}
+/**
+ * 1) Ensure Apache include_files entry exists
+ */
+if (strpos($code, $pattern) === false) {
+    $needle = "'include_files' => [";
+    $pos    = strpos($code, $needle);
 
-// --- Ensure middleware includes web, auth, admin ---
-$middleware = $config['middleware'] ?? ['web'];
-
-$required = ['web', 'auth', 'admin'];
-
-foreach ($required as $mw) {
-    if (!in_array($mw, $middleware, true)) {
-        $middleware[] = $mw;
+    if ($pos !== false) {
+        $insert = $needle . "\n        '$pattern' => 'Apache (HelioNET)',";
+        $code   = substr_replace($code, $insert, $pos, strlen($needle));
     }
 }
 
-$config['middleware'] = $middleware;
+/**
+ * 2) Ensure middleware includes web, auth, admin
+ *    We assume the default `'middleware' => ['web'],` and upgrade it.
+ */
+$search  = "'middleware' => ['web'],";
+$replace = "'middleware' => ['web', 'auth', 'admin'],";
 
-// Write back to config file
-$export = "<?php\n\nreturn " . var_export($config, true) . ";\n";
-file_put_contents($file, $export);
+// Only replace if we haven't already upgraded
+if (strpos($code, $replace) === false) {
+    $code = str_replace($search, $replace, $code);
+}
+
+file_put_contents($file, $code);
 PHP
 }
+
 
 # Only the web role should run bootstrap + log-viewer wiring
 if [ "$ROLE" = "web" ]; then

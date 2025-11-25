@@ -87,5 +87,11 @@ else
     echo "[HelioNET | Entry] Non-web role ($ROLE); skipping bootstrap/log-viewer config."
 fi
 
+php artisan optimize:clear || true
+# optional: re-cache if you want
+php artisan config:cache || true
+php artisan route:cache || true
+php artisan view:cache  || true
+
 echo "[HelioNET | Runtime] Starting: $*"
 exec "$@"

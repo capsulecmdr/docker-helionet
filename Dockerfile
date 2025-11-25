@@ -86,9 +86,7 @@ RUN chmod +x /var/www/html/scripts/bootstrap-packages.php
 # -----------------------------
 # Install dependencies & optimize
 # -----------------------------
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress || true \
- && php artisan route:cache || true \
- && php artisan view:cache || true
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress || true
 
 # -----------------------------
 # Permissions – app owned by helionet (Apache workers)

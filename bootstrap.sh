@@ -378,6 +378,11 @@ fi
 ########################################
 # Done
 ########################################
-log_msg "Done" 1 1 "OK" "Bootstrap complete. HelioNET stack should be up."
-echo "Open: ${HELIONET_DOMAIN}"
+log_msg "Done" 1 3 "OK" "HelioNET stack should be up."
 echo "Install directory: $INSTALL_DIR"
+echo "Webserver listening on: ${HELIONET_DOMAIN}"
+log_msg "Done" 2 3 "INFO" "Generating temporary admin link."
+echo "One Time Admin Login:"
+cd "$INSTALL_DIR"
+run_in_web "cd /var/www/html && php artisan helionet:admin:login || true"
+log_msg "Done" 3 3 "OK" "Bootstrap complete."

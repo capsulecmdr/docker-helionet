@@ -1,11 +1,10 @@
 # HelioNET app image builder (Dockerfile lives OUTSIDE app repo)
-FROM php:8.3-fpm
+FROM php:8.3-apache
 
 # -----------------------------
 # System packages & PHP extensions
 # -----------------------------
 RUN apt-get update && apt-get install -y \
-    nginx \
     supervisor \
     git \
     unzip \
@@ -23,20 +22,27 @@ RUN apt-get update && apt-get install -y \
         intl \
         mbstring \
         zip \
+        pcntl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Redis PHP extension
+# Redis PHP extension
 RUN pecl install redis \
     && docker-php-ext-enable redis
 
-# Install Horizon dependencies (pcntl)
-RUN docker-php-ext-install pcntl
+# -----------------------------
+# Apache config
+# -----------------------------
+# Enable modules Laravel needs
+RUN a2enmod rewrite headers
 
-# -----------------------------
-# (Removed helios user; use default root + www-data inside processes)
-# -----------------------------
-# Previously we created a 'helios' user and forced PHP-FPM to run as it.
-# That is now removed so we use the defaults (www-data inside FPM / nginx).
+# Optional but nice: custom vhost instead of default
+# (we'll create apache/helionet.conf in the docker-helionet repo)
+COPY apache/helionet.conf /etc/apache2/sites-available/000-default.conf
+
+# Make sure Apache logs dir exists (base image already has it, but this is safe)
+RUN mkdir -p /var/log/apache2 \
+    && touch /var/log/apache2/access.log /var/log/apache2/error.log \
+    && chmod 644 /var/log/apache2/*.log
 
 # -----------------------------
 # Composer
@@ -44,22 +50,11 @@ RUN docker-php-ext-install pcntl
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # -----------------------------
-# Nginx + Supervisor configs (live in docker-helionet repo)
+# Supervisor config (lives in docker-helionet repo)
 # -----------------------------
-RUN rm -f /etc/nginx/nginx.conf /etc/nginx/sites-enabled/default
-COPY nginx/nginx.conf /etc/nginx/nginx.conf
-COPY nginx/site.conf /etc/nginx/conf.d/default.conf
-
 COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
-#COPY supervisor/laravel-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
-
-# -----------------------------
-# Ensure nginx log files exist and are readable
-# -----------------------------
-RUN mkdir -p /var/log/nginx \
-    && touch /var/log/nginx/access.log /var/log/nginx/error.log \
-    && chmod 644 /var/log/nginx/*.log \
-    && chmod 755 /var/log/nginx
+# If you have extra program configs, you can keep them in conf.d as before:
+# COPY supervisor/laravel-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
 
 # -----------------------------
 # Application code
@@ -67,13 +62,11 @@ RUN mkdir -p /var/log/nginx \
 WORKDIR /var/www/html
 
 # Clean any default files
-RUN rm -f /var/www/html/index.nginx-debian.html /var/www/html/helionet || true
+RUN rm -f /var/www/html/index.html /var/www/html/index.php /var/www/html/helionet || true
 
 # NOTE:
 # If you are baking the app into the image, you would do:
 COPY helionet/ ./
-# and then run composer/artisan below.
-# If you're using a bind mount, these commands are effectively no-ops.
 
 # -----------------------------
 # HelioNET dynamic package scripts
@@ -90,8 +83,15 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progre
 RUN php artisan route:cache || true \
  && php artisan view:cache || true
 
+# -----------------------------
+# Permissions (storage + cache)
+# -----------------------------
+RUN chown -R www-data:www-data /var/www/html \
+    && find storage -type d -exec chmod 775 {} \; || true \
+    && find storage -type f -exec chmod 664 {} \; || true \
+    && chmod -R 775 bootstrap/cache || true
 
- # -----------------------------
+# -----------------------------
 # Entrypoint
 # -----------------------------
 COPY entrypoint.sh /entrypoint.sh

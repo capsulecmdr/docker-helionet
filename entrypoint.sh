@@ -16,9 +16,17 @@ run_bootstrap() {
 
     echo "[HelioNET | Packages] Running dynamic package bootstrap..."
 
-    php /var/www/html/scripts/bootstrap-packages.php \
+    if [[ ! -f /var/www/html/scripts/bootstrap-packages.php ]]; then
+        echo "[helionet | Packages] bootstrap-packages.php not found."
+        echo "[helionet | Packages] Assuming live-dev configuration — skipping package bootstrap."
+        return
+    else
+        php /var/www/html/scripts/bootstrap-packages.php \
         /var/www/html/storage/packages/packages.jsonl \
         /var/www/html
+    fi
+
+    
 
     # touch "$LOCK_FILE"
     # echo "[HelioNET | Packages] Bootstrap complete; lock file created."
